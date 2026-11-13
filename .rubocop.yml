@@ -1,0 +1,56 @@
+plugins:
+  - rubocop-minitest
+  - rubocop-rake
+
+AllCops:
+  TargetRubyVersion: 3.3
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - vendor/**/*
+    - tmp/**/*
+
+# Double quotes everywhere, as in the other Flashpi SDKs' strings.
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+Layout/LineLength:
+  Max: 120
+
+# The SDK's methods follow the operations of the API and the rules of the Python SDK; their size
+# is the size of those rules, not a sign of a missing abstraction.
+Metrics/AbcSize:
+  Enabled: false
+Metrics/ClassLength:
+  Enabled: false
+Metrics/CyclomaticComplexity:
+  Enabled: false
+Metrics/MethodLength:
+  Enabled: false
+Metrics/ModuleLength:
+  Enabled: false
+Metrics/PerceivedComplexity:
+  Enabled: false
+Metrics/BlockLength:
+  Exclude:
+    - test/**/*
+Metrics/ParameterLists:
+  CountKeywordArgs: false
+
+# Tests read best as one behavior each, however many assertions it takes.
+Minitest/MultipleAssertions:
+  Enabled: false
+
+Minitest/EmptyLineBeforeAssertionMethods:
+  Enabled: false
+
+# `#:` is a Steep type annotation.
+Layout/LeadingCommentSpace:
+  AllowSteepAnnotation: true
+
+# Test names quote HTTP statuses (test_retries_a_409_...).
+Naming/VariableNumber:
+  CheckMethodNames: false
