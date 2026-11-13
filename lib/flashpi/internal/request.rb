@@ -162,7 +162,10 @@ module Flashpi
       # @raise [Flashpi::Error]
       def of(template, *ids)
         parts = template.split("{}", -1)
-        raise ArgumentError, "#{template} has #{parts.size - 1} placeholders, not #{ids.size}" if parts.size != ids.size + 1
+        if parts.size != ids.size + 1
+          raise ArgumentError,
+                "#{template} has #{parts.size - 1} placeholders, not #{ids.size}"
+        end
 
         shown = template.gsub("{}", "{id}")
         path = parts.first.to_s

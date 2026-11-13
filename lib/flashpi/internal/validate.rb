@@ -92,7 +92,10 @@ module Flashpi
         checked = {} #: Hash[String, String]
         headers.each do |name, value|
           valid = header_name!(name)
-          raise ArgumentError, "#{valid.inspect} is set by the SDK from the body: leave it out" if FRAMING.include?(valid.downcase)
+          if FRAMING.include?(valid.downcase)
+            raise ArgumentError,
+                  "#{valid.inspect} is set by the SDK from the body: leave it out"
+          end
 
           checked[valid] = header_value!("The value of header #{valid.inspect}", value)
         end
@@ -103,7 +106,7 @@ module Flashpi
       #
       # @return [String, nil]
       def utf8(text)
-        if text.encoding == Encoding::BINARY || text.encoding == Encoding::UTF_8
+        if [Encoding::BINARY, Encoding::UTF_8].include?(text.encoding)
           copy = text.dup.force_encoding(Encoding::UTF_8)
           copy.valid_encoding? ? copy : nil
         elsif !text.valid_encoding?

@@ -279,6 +279,7 @@ module Flashpi
 
       private
 
+      def unanswered?: (Error failure) -> bool
       def attempt_once: (RequestSpec spec, Call call) -> (APIResponse[untyped] | APIError | APIConnectionError)
       def prepare: (RequestSpec spec) -> Call
       def body_content: (RequestSpec spec) -> String?
@@ -310,6 +311,7 @@ module Flashpi
 
       private
 
+      def operation: (http_method http_method, String template, *untyped ids, **untyped settings) -> RequestSpec
       def send_request: (RequestSpec spec) -> untyped
       def send_call: (RequestSpec spec) -> APIResponse[untyped]
       def paginate: (RequestSpec spec) -> Page[untyped]

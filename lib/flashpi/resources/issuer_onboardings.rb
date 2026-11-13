@@ -16,17 +16,14 @@ module Flashpi
       # @return [Hash{Symbol => Object}] the onboarding
       def create(upload, **options)
         form = Internal::Multipart.certificate(upload)
-        send_request(Internal::RequestSpec.new(http_method: :post, path: "/v1/issuer-onboardings", multipart: form,
-                                               options:))
+        send_request(operation(:post, "/v1/issuer-onboardings", multipart: form, options:))
       end
 
       # Retrieves an onboarding, to follow it while it is `verifying`.
       #
       # @return [Hash{Symbol => Object}] the onboarding
       def get(onboarding_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :get,
-                                               path: Internal::Path.of("/v1/issuer-onboardings/{}", onboarding_id),
-                                               options:))
+        send_request(operation(:get, "/v1/issuer-onboardings/{}", onboarding_id, options:))
       end
 
       # Completes a `ready` onboarding.
@@ -41,9 +38,9 @@ module Flashpi
       #
       # @return [Hash{Symbol => Object}] the completed onboarding, with its issuer
       def complete(onboarding_id, body = nil, **options)
-        send_request(Internal::RequestSpec.new(http_method: :post,
-                                               path: Internal::Path.of("/v1/issuer-onboardings/{}/complete", onboarding_id),
-                                               body: body.nil? ? {} : body, options:))
+        send_request(
+          operation(:post, "/v1/issuer-onboardings/{}/complete", onboarding_id, body: body.nil? ? {} : body, options:)
+        )
       end
     end
   end

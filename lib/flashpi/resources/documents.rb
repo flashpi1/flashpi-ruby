@@ -44,12 +44,8 @@ module Flashpi
       # @param body [Hash] the document, with the API's camelCase keys
       # @return [Hash{Symbol => Object}] the document
       def create(body, **options)
-        send_request(
-          Internal::RequestSpec.new(
-            http_method: :post, path: self.class::PATH, body:, options:,
-            min_timeout: DocumentIssuer.sync_timeout_floor(body), recover_document: true
-          )
-        )
+        floor = DocumentIssuer.sync_timeout_floor(body)
+        send_request(operation(:post, self.class::PATH, body:, options:, min_timeout: floor, recover_document: true))
       end
     end
 
@@ -96,15 +92,14 @@ module Flashpi
       # @param params [Hash, nil] filters with the API's names (`status`, `issueDateFrom`, ...)
       # @return [Flashpi::Page]
       def list(params = nil, **options)
-        paginate(Internal::RequestSpec.new(http_method: :get, path: "/v1/documents", query: params, options:))
+        paginate(operation(:get, "/v1/documents", query: params, options:))
       end
 
       # Retrieves a document with its tax status, SRI messages, RIDE and email state.
       #
       # @return [Hash{Symbol => Object}]
       def get(document_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of("/v1/documents/{}", document_id),
-                                               options:))
+        send_request(operation(:get, "/v1/documents/{}", document_id, options:))
       end
 
       # The document's XML: the authorized one once the SRI authorizes it, otherwise the signed or
@@ -113,8 +108,7 @@ module Flashpi
       # @return [Hash{Symbol => Object}] `{ xml: String, kind: "authorized" | "signed" | "unsigned" | nil }`
       def xml(document_id, **options)
         result = send_call(
-          Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of("/v1/documents/{}/xml", document_id),
-                                    accept: XML_ACCEPT, response_type: :text, options:)
+          operation(:get, "/v1/documents/{}/xml", document_id, accept: XML_ACCEPT, response_type: :text, options:)
         )
         kind = result.headers["flashpi-xml-kind"]
         _ = { xml: result.data, kind: XML_KINDS.include?(kind) ? kind : nil }
@@ -126,8 +120,7 @@ module Flashpi
       # @return [String]
       def pdf(document_id, **options)
         send_request(
-          Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of("/v1/documents/{}/pdf", document_id),
-                                    accept: PDF_ACCEPT, response_type: :bytes, options:)
+          operation(:get, "/v1/documents/{}/pdf", document_id, accept: PDF_ACCEPT, response_type: :bytes, options:)
         )
       end
 
@@ -136,10 +129,7 @@ module Flashpi
       #
       # @return [Hash{Symbol => Object}] the document
       def send_email(document_id, **options)
-        send_request(
-          Internal::RequestSpec.new(http_method: :post, path: Internal::Path.of("/v1/documents/{}/email", document_id),
-                                    body: {}, options:)
-        )
+        send_request(operation(:post, "/v1/documents/{}/email", document_id, body: {}, options:))
       end
     end
   end

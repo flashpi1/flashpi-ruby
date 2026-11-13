@@ -70,7 +70,11 @@ module Flashpi
         while content.bytesize <= MAX_CERTIFICATE_BYTES
           chunk = file.read([PIECE, MAX_CERTIFICATE_BYTES + 1 - content.bytesize].min)
           break if chunk.nil?
-          refuse!(TypeError, "The read method of the certificate file returned #{chunk.class}, not a String") unless chunk.is_a?(String)
+
+          unless chunk.is_a?(String)
+            refuse!(TypeError,
+                    "The read method of the certificate file returned #{chunk.class}, not a String")
+          end
           break if chunk.empty?
 
           content << chunk.b

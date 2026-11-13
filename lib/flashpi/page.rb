@@ -25,7 +25,10 @@ module Flashpi
       members = body.is_a?(Hash) ? body : {} #: Hash[untyped, untyped]
       data = members[:data]
       pagination = members[:pagination]
-      raise Error, "The API answered a list without data and pagination" unless data.is_a?(Array) && pagination.is_a?(Hash)
+      unless data.is_a?(Array) && pagination.is_a?(Hash)
+        raise Error,
+              "The API answered a list without data and pagination"
+      end
 
       @data = data
       @has_more = pagination[:hasMore] == true
@@ -35,7 +38,7 @@ module Flashpi
     end
 
     # @return [Boolean] whether more items follow this page
-    def has_more? # rubocop:disable Naming/PredicatePrefix (the API's hasMore)
+    def has_more? # rubocop:disable Naming/PredicatePrefix -- the API's hasMore
       @has_more
     end
 

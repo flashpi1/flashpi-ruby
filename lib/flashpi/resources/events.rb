@@ -10,15 +10,14 @@ module Flashpi
       #
       # @return [Flashpi::Page]
       def list(params = nil, **options)
-        paginate(Internal::RequestSpec.new(http_method: :get, path: "/v1/events", query: params, options:))
+        paginate(operation(:get, "/v1/events", query: params, options:))
       end
 
       # Retrieves an event: the same object its webhook delivered.
       #
       # @return [Hash{Symbol => Object}] the event
       def get(event_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of("/v1/events/{}", event_id),
-                                               options:))
+        send_request(operation(:get, "/v1/events/{}", event_id, options:))
       end
     end
 
@@ -30,7 +29,7 @@ module Flashpi
       #
       # @return [Hash{Symbol => Object}]
       def get(**options)
-        send_request(Internal::RequestSpec.new(http_method: :get, path: "/v1/status", options:))
+        send_request(operation(:get, "/v1/status", options:))
       end
     end
   end

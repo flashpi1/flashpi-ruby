@@ -13,25 +13,21 @@ module Flashpi
       #
       # @return [Flashpi::Page]
       def list(endpoint_id, params = nil, **options)
-        paginate(Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of(PATH, endpoint_id), query: params,
-                                           options:))
+        paginate(operation(:get, PATH, endpoint_id, query: params, options:))
       end
 
       # Retrieves a delivery with its attempts.
       #
       # @return [Hash{Symbol => Object}] the delivery
       def get(endpoint_id, delivery_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of(ITEM, endpoint_id, delivery_id),
-                                               options:))
+        send_request(operation(:get, ITEM, endpoint_id, delivery_id, options:))
       end
 
       # Sends the delivery's event again, with the same `webhook-id`.
       #
       # @return [Hash{Symbol => Object}] the delivery
       def replay(endpoint_id, delivery_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :post,
-                                               path: Internal::Path.of("#{ITEM}/replay", endpoint_id, delivery_id),
-                                               options:))
+        send_request(operation(:post, "#{ITEM}/replay", endpoint_id, delivery_id, options:))
       end
     end
 
@@ -56,45 +52,42 @@ module Flashpi
       #
       # @return [Hash{Symbol => Object}] the endpoint
       def create(body, **options)
-        send_request(Internal::RequestSpec.new(http_method: :post, path: PATH, body:, options:))
+        send_request(operation(:post, PATH, body:, options:))
       end
 
       # Lists the endpoints, newest first.
       #
       # @return [Flashpi::Page]
       def list(params = nil, **options)
-        paginate(Internal::RequestSpec.new(http_method: :get, path: PATH, query: params, options:))
+        paginate(operation(:get, PATH, query: params, options:))
       end
 
       # Retrieves an endpoint.
       #
       # @return [Hash{Symbol => Object}] the endpoint
       def get(endpoint_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of(ITEM, endpoint_id), options:))
+        send_request(operation(:get, ITEM, endpoint_id, options:))
       end
 
       # Updates the URL, events, payload mode, description or `disabled` (only the fields sent).
       #
       # @return [Hash{Symbol => Object}] the endpoint
       def update(endpoint_id, body, **options)
-        send_request(Internal::RequestSpec.new(http_method: :patch, path: Internal::Path.of(ITEM, endpoint_id), body:,
-                                               options:))
+        send_request(operation(:patch, ITEM, endpoint_id, body:, options:))
       end
 
       # Deletes an endpoint.
       #
       # @return [nil]
       def delete(endpoint_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :delete, path: Internal::Path.of(ITEM, endpoint_id),
-                                               response_type: :none, options:))
+        send_request(operation(:delete, ITEM, endpoint_id, response_type: :none, options:))
       end
 
       # The signing secret (`whsec_...`) and, during a rotation, when the previous one expires.
       #
       # @return [Hash{Symbol => Object}]
-      def get_secret(endpoint_id, **options) # rubocop:disable Naming/AccessorMethodName (the API's operation)
-        send_request(Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of("#{ITEM}/secret", endpoint_id),
-                                               options:))
+      def get_secret(endpoint_id, **options)
+        send_request(operation(:get, "#{ITEM}/secret", endpoint_id, options:))
       end
 
       # Replaces the signing secret. The previous one keeps signing for
@@ -103,17 +96,14 @@ module Flashpi
       #
       # @return [Hash{Symbol => Object}] the endpoint
       def rotate_secret(endpoint_id, body = nil, **options)
-        send_request(Internal::RequestSpec.new(http_method: :post,
-                                               path: Internal::Path.of("#{ITEM}/rotate-secret", endpoint_id),
-                                               body:, options:))
+        send_request(operation(:post, "#{ITEM}/rotate-secret", endpoint_id, body:, options:))
       end
 
       # Sends the activation challenge (`webhook_endpoint.verification`) to the endpoint again.
       #
       # @return [Hash{Symbol => Object}] the endpoint
       def verify(endpoint_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :post, path: Internal::Path.of("#{ITEM}/verify", endpoint_id),
-                                               options:))
+        send_request(operation(:post, "#{ITEM}/verify", endpoint_id, options:))
       end
     end
   end

@@ -80,7 +80,7 @@ module Flashpi
             end
           end
 
-          unanswered = true if failure.is_a?(APIConnectionError) || (failure.is_a?(APIError) && failure.status >= 500 && failure.problem.nil?)
+          unanswered = true if unanswered?(failure)
           delay = retry_delay(failure, retries)
           raise failure if delay.nil? || retries >= call.max_retries
 
@@ -104,16 +104,28 @@ module Flashpi
         raise
       end
 
+      # Whether the attempt may have reached the API without its answer reaching us: a network
+      # error, a timeout, or a 5xx from a proxy (no Problem Details).
+      def unanswered?(failure)
+        failure.is_a?(APIConnectionError) || (failure.is_a?(APIError) && failure.status >= 500 && failure.problem.nil?)
+      end
+
       # Checks the options and builds what the attempts share. Raises before anything is sent.
       def prepare(spec)
         options = check_options(spec.options)
-        max_retries = options[:max_retries].nil? ? config.max_retries : Validate.retries!("max_retries", options[:max_retries])
+        max_retries = if options[:max_retries].nil?
+                        config.max_retries
+                      else
+                        Validate.retries!("max_retries",
+                                          options[:max_retries])
+                      end
         timeout = options[:timeout].nil? ? config.timeout : Validate.timeout!("timeout", options[:timeout])
         target = build_target(spec.path, spec.query)
+        longest = [spec.min_timeout, timeout].max
         Call.new(
           options:,
           max_retries:,
-          timeout: [[timeout, spec.min_timeout].max, Validate::MAX_TIMEOUT].min,
+          timeout: [longest, Validate::MAX_TIMEOUT].min,
           url: config.base_url.sub(%r{/+\z}, "") + target,
           target: @base_path + target,
           idempotency_key: idempotency_key_of(spec.http_method, options),
@@ -143,7 +155,7 @@ module Flashpi
       # call's key on the error, so trying again later with that key returns the document instead
       # of issuing another.
       def recover_document(call, document_id)
-        options = call.options.reject { |name, _| name == :idempotency_key }
+        options = call.options.except(:idempotency_key)
         request(RequestSpec.new(http_method: :get, path: Path.of("/v1/documents/{}", document_id), options:))
       rescue Error => e
         e.idempotency_key = call.idempotency_key
@@ -190,7 +202,7 @@ module Flashpi
       # The result of a DELETE whose resource is gone: a 204 with the 404's headers.
       def deleted(failure)
         dropped = %w[content-length content-type content-encoding transfer-encoding]
-        headers = failure.headers.reject { |name, _| dropped.include?(name) }
+        headers = failure.headers.except(*dropped)
         APIResponse.new(data: nil, status: 204, headers:, request_id: failure.request_id)
       end
 
@@ -204,7 +216,10 @@ module Flashpi
         end
 
         checked = options.dup
-        checked[:extra_headers] = Validate.headers!("extra_headers", options[:extra_headers]) unless options[:extra_headers].nil?
+        unless options[:extra_headers].nil?
+          checked[:extra_headers] =
+            Validate.headers!("extra_headers", options[:extra_headers])
+        end
         %i[idempotency_key correlation_id].each do |name|
           checked[name] = Validate.header_value!(name.to_s, options[name]) unless options[name].nil?
         end
@@ -280,9 +295,7 @@ module Flashpi
 
       # The data of a successful answer, or the APIError of an error status.
       def read_response(raw, response_type)
-        unless (200..299).cover?(raw.status)
-          return Problems.error(raw.status, raw.headers, JSONText.decode(raw.body))
-        end
+        return Problems.error(raw.status, raw.headers, JSONText.decode(raw.body)) unless (200..299).cover?(raw.status)
 
         APIResponse.new(
           data: read_data(raw, response_type),

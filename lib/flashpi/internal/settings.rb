@@ -22,7 +22,10 @@ module Flashpi
         problem = key_problem(trimmed_key(api_key))
         refuse!(problem) if problem
         headers = Internal::Validate.headers!("default_headers", default_headers)
-        language = Internal::Validate.header_value!("language", language.is_a?(Symbol) ? language.to_s : language) unless language.nil?
+        unless language.nil?
+          language = Internal::Validate.header_value!("language",
+                                                      language.is_a?(Symbol) ? language.to_s : language)
+        end
         if headers.keys.any? { |name| name.casecmp?("idempotency-key") }
           refuse!("default_headers cannot carry an Idempotency-Key: it must be unique per operation. " \
                   "Pass idempotency_key: to each create instead")

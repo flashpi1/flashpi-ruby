@@ -11,32 +11,28 @@ module Flashpi
 
       # @return [Hash{Symbol => Object}] the emission point
       def create(issuer_id, establishment_id, body, **options)
-        send_request(Internal::RequestSpec.new(http_method: :post, path: Internal::Path.of(PATH, issuer_id, establishment_id),
-                                               body:, options:))
+        send_request(operation(:post, PATH, issuer_id, establishment_id, body:, options:))
       end
 
       # Lists the emission points of an establishment, by code.
       #
       # @return [Flashpi::Page]
       def list(issuer_id, establishment_id, params = nil, **options)
-        paginate(Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of(PATH, issuer_id, establishment_id),
-                                           query: params, options:))
+        paginate(operation(:get, PATH, issuer_id, establishment_id, query: params, options:))
       end
 
       # @return [Hash{Symbol => Object}] the emission point
       def get(issuer_id, establishment_id, emission_point_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :get,
-                                               path: Internal::Path.of(ITEM, issuer_id, establishment_id, emission_point_id),
-                                               options:))
+        send_request(operation(:get, ITEM, issuer_id, establishment_id, emission_point_id, options:))
       end
 
       # Deletes an emission point that has no documents.
       #
       # @return [nil]
       def delete(issuer_id, establishment_id, emission_point_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :delete,
-                                               path: Internal::Path.of(ITEM, issuer_id, establishment_id, emission_point_id),
-                                               response_type: :none, options:))
+        send_request(
+          operation(:delete, ITEM, issuer_id, establishment_id, emission_point_id, response_type: :none, options:)
+        )
       end
     end
 
@@ -57,37 +53,33 @@ module Flashpi
 
       # @return [Hash{Symbol => Object}] the establishment
       def create(issuer_id, body, **options)
-        send_request(Internal::RequestSpec.new(http_method: :post, path: Internal::Path.of(PATH, issuer_id), body:, options:))
+        send_request(operation(:post, PATH, issuer_id, body:, options:))
       end
 
       # Lists the establishments of an issuer, by code.
       #
       # @return [Flashpi::Page]
       def list(issuer_id, params = nil, **options)
-        paginate(Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of(PATH, issuer_id), query: params,
-                                           options:))
+        paginate(operation(:get, PATH, issuer_id, query: params, options:))
       end
 
       # @return [Hash{Symbol => Object}] the establishment
       def get(issuer_id, establishment_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of(ITEM, issuer_id, establishment_id),
-                                               options:))
+        send_request(operation(:get, ITEM, issuer_id, establishment_id, options:))
       end
 
       # Updates an establishment (only the fields sent).
       #
       # @return [Hash{Symbol => Object}] the establishment
       def update(issuer_id, establishment_id, body, **options)
-        send_request(Internal::RequestSpec.new(http_method: :patch, path: Internal::Path.of(ITEM, issuer_id, establishment_id),
-                                               body:, options:))
+        send_request(operation(:patch, ITEM, issuer_id, establishment_id, body:, options:))
       end
 
       # Deletes an establishment that has no documents, with its emission points.
       #
       # @return [nil]
       def delete(issuer_id, establishment_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :delete, path: Internal::Path.of(ITEM, issuer_id, establishment_id),
-                                               response_type: :none, options:))
+        send_request(operation(:delete, ITEM, issuer_id, establishment_id, response_type: :none, options:))
       end
     end
 
@@ -110,22 +102,19 @@ module Flashpi
       # @return [Hash{Symbol => Object}] the certificate
       def upload(issuer_id, upload, **options)
         form = Internal::Multipart.certificate(upload)
-        send_request(Internal::RequestSpec.new(http_method: :post, path: Internal::Path.of(PATH, issuer_id),
-                                               multipart: form, options:))
+        send_request(operation(:post, PATH, issuer_id, multipart: form, options:))
       end
 
       # Lists the certificates of an issuer, newest first.
       #
       # @return [Flashpi::Page]
       def list(issuer_id, params = nil, **options)
-        paginate(Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of(PATH, issuer_id), query: params,
-                                           options:))
+        paginate(operation(:get, PATH, issuer_id, query: params, options:))
       end
 
       # @return [Hash{Symbol => Object}] the certificate
       def get(issuer_id, certificate_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of(ITEM, issuer_id, certificate_id),
-                                               options:))
+        send_request(operation(:get, ITEM, issuer_id, certificate_id, options:))
       end
     end
 
@@ -152,29 +141,28 @@ module Flashpi
       #
       # @return [Hash{Symbol => Object}] the issuer
       def create(body, **options)
-        send_request(Internal::RequestSpec.new(http_method: :post, path: PATH, body:, options:))
+        send_request(operation(:post, PATH, body:, options:))
       end
 
       # Lists the issuers, newest first.
       #
       # @return [Flashpi::Page]
       def list(params = nil, **options)
-        paginate(Internal::RequestSpec.new(http_method: :get, path: PATH, query: params, options:))
+        paginate(operation(:get, PATH, query: params, options:))
       end
 
       # Retrieves an issuer.
       #
       # @return [Hash{Symbol => Object}] the issuer
       def get(issuer_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :get, path: Internal::Path.of(ITEM, issuer_id), options:))
+        send_request(operation(:get, ITEM, issuer_id, options:))
       end
 
       # Updates an issuer's name, tax profile, branding or defaults (only the fields sent).
       #
       # @return [Hash{Symbol => Object}] the issuer
       def update(issuer_id, body, **options)
-        send_request(Internal::RequestSpec.new(http_method: :patch, path: Internal::Path.of(ITEM, issuer_id), body:,
-                                               options:))
+        send_request(operation(:patch, ITEM, issuer_id, body:, options:))
       end
 
       # Deletes an issuer that has no documents and no certificates, with its establishments,
@@ -184,8 +172,7 @@ module Flashpi
       #
       # @return [nil]
       def delete(issuer_id, **options)
-        send_request(Internal::RequestSpec.new(http_method: :delete, path: Internal::Path.of(ITEM, issuer_id),
-                                               response_type: :none, options:))
+        send_request(operation(:delete, ITEM, issuer_id, response_type: :none, options:))
       end
     end
   end

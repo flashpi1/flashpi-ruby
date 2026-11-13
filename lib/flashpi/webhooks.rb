@@ -63,7 +63,8 @@ module Flashpi
         end
 
         body = payload_bytes(payload)
-        reject!(:no_matching_signature, NO_MATCH) unless signed?(key, "#{webhook_id.b}.#{timestamp}.".b + body, signatures)
+        reject!(:no_matching_signature, NO_MATCH) unless signed?(key, "#{webhook_id.b}.#{timestamp}.".b + body,
+                                                                 signatures)
         nil
       end
 
@@ -168,7 +169,10 @@ module Flashpi
       end
 
       def payload_bytes(payload)
-        reject!(:invalid_payload, "Pass the raw webhook body as a String (not parsed JSON)") unless payload.is_a?(String)
+        unless payload.is_a?(String)
+          reject!(:invalid_payload,
+                  "Pass the raw webhook body as a String (not parsed JSON)")
+        end
 
         payload.b
       end
@@ -177,7 +181,10 @@ module Flashpi
       # ArgumentError, never a skipped time check.
       def verify_options(tolerance, now)
         value = tolerance.nil? ? TOLERANCE_SECONDS : tolerance
-        raise TypeError, "tolerance must be a number of seconds, 0 or more" unless value.is_a?(Integer) || value.is_a?(Float)
+        unless value.is_a?(Integer) || value.is_a?(Float)
+          raise TypeError,
+                "tolerance must be a number of seconds, 0 or more"
+        end
         raise ArgumentError, "tolerance must be a number of seconds, 0 or more" unless value.to_f.finite? && value >= 0
 
         [value.to_f, clock(now)]
@@ -187,7 +194,8 @@ module Flashpi
         seconds = case now
                   when nil then Time.now.to_f
                   when Time then now.to_f
-                  when Integer, Float then now.to_f
+                  when Integer then now.bit_length > 1000 ? Float::INFINITY : now.to_f
+                  when Float then now
                   else raise TypeError, "now must be a Time or a number of Unix seconds"
                   end
         raise ArgumentError, "now must be a Time or a number of Unix seconds" unless seconds.finite?

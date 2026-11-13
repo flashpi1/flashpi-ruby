@@ -19,6 +19,7 @@ require "json"
 require "net/http"
 require "uri"
 
+# The generator of sig/flashpi/types.rbs and the commands of this script.
 module OpenAPI
   ROOT = File.expand_path("..", __dir__)
   CONTRACT_PATH = File.join(ROOT, "openapi", "openapi.json")
@@ -84,7 +85,10 @@ module OpenAPI
     def initialize(document)
       @document = schema(document, "document")
       version = @document["openapi"]
-      raise GenerationError, "Only OpenAPI 3.1 documents are supported" unless version.is_a?(String) && version.start_with?("3.1")
+      unless version.is_a?(String) && version.start_with?("3.1")
+        raise GenerationError,
+              "Only OpenAPI 3.1 documents are supported"
+      end
 
       components = schema(@document.fetch("components", {}), "components")
       @schemas = schema(components.fetch("schemas", {}), "components.schemas")
@@ -122,7 +126,10 @@ module OpenAPI
     # The alias of a component schema or of an inline enum or object.
     def alias_name(hint)
       name = OpenAPI.snake(hint)
-      raise GenerationError, "#{hint} is not a valid RBS type name" unless ALIAS.match?(name) && !RESERVED.include?(name)
+      unless ALIAS.match?(name) && !RESERVED.include?(name)
+        raise GenerationError,
+              "#{hint} is not a valid RBS type name"
+      end
 
       name
     end
@@ -167,7 +174,10 @@ module OpenAPI
       target = text(value["$ref"], where)
       prefix = "#/components/schemas/"
       name = target.delete_prefix(prefix)
-      raise GenerationError, "#{where}: unknown reference #{target}" unless target.start_with?(prefix) && @schemas.key?(name)
+      unless target.start_with?(prefix) && @schemas.key?(name)
+        raise GenerationError,
+              "#{where}: unknown reference #{target}"
+      end
       raise GenerationError, "#{where}: $ref with sibling keywords" if (value.keys - ANNOTATION_KEYWORDS).size > 1
 
       name
@@ -242,7 +252,10 @@ module OpenAPI
       raise GenerationError, "#{where}: #{combinator} with #{structure.sort.join(", ")}" unless structure.empty?
 
       members = list(value[combinator], where).map { |member| schema(member, where) }
-      raise GenerationError, "#{where}: allOf is only supported with one member" if combinator == "allOf" && members.size != 1
+      if combinator == "allOf" && members.size != 1
+        raise GenerationError,
+              "#{where}: allOf is only supported with one member"
+      end
 
       expressions = members.each_with_index.map do |member, index|
         render(member, hint, "#{where}.#{combinator}[#{index}]")
@@ -257,11 +270,17 @@ module OpenAPI
       name = text(discriminator["propertyName"], "#{where}.discriminator.propertyName")
       mapping = schema(discriminator.fetch("mapping", {}), "#{where}.discriminator.mapping")
       referenced = members.select { |member| member.key?("$ref") }.map { |member| reference(member, where) }
-      raise GenerationError, "#{where}: a discriminated union must list references only" if referenced.size != members.size
+      if referenced.size != members.size
+        raise GenerationError,
+              "#{where}: a discriminated union must list references only"
+      end
 
       mapping.each do |discriminant, target|
         target_name = text(target, where).delete_prefix("#/components/schemas/")
-        raise GenerationError, "#{where}: mapping #{discriminant} points outside the union" unless referenced.include?(target_name)
+        unless referenced.include?(target_name)
+          raise GenerationError,
+                "#{where}: mapping #{discriminant} points outside the union"
+        end
 
         properties = schema(schema(@schemas[target_name], target_name).fetch("properties", {}), target_name)
         property = schema(properties.fetch(name, {}), "#{target_name}.#{name}")
@@ -291,7 +310,8 @@ module OpenAPI
 
       check_not(value, where) if value.key?("not")
       extra = value["additionalProperties"]
-      raise GenerationError, "#{where}: typed members with typed additionalProperties" unless [nil, true, false].include?(extra)
+      raise GenerationError, "#{where}: typed members with typed additionalProperties" unless [nil, true,
+                                                                                               false].include?(extra)
 
       properties = schema(value.fetch("properties", {}), "#{where}.properties")
       required = list(value.fetch("required", []), where).map { |item| text(item, where) }
@@ -422,8 +442,11 @@ module OpenAPI
         lines << "" if index.positive? && !field.doc.empty?
         lines.concat(comment(field.doc, "#{indent}#{INDENT}"))
         separator = index == definition.fields.size - 1 ? "" : ","
-        line = "#{indent}#{INDENT}#{field.required ? "" : "?"}#{field.name}: #{field.type}#{separator}"
-        raise GenerationError, "#{definition.name}.#{field.name}: the type is too long for one line" if line.length > LINE_LENGTH
+        line = "#{indent}#{INDENT}#{"?" unless field.required}#{field.name}: #{field.type}#{separator}"
+        if line.length > LINE_LENGTH
+          raise GenerationError,
+                "#{definition.name}.#{field.name}: the type is too long for one line"
+        end
 
         lines << line
       end
@@ -442,6 +465,13 @@ module OpenAPI
       ["#{prefix}#{members.first}", *members.drop(1).map { |member| "#{indent}#{INDENT}| #{member}" }]
     end
 
+    # The index of the quote that closes the string literal opened at `start`.
+    def string_end(expression, start)
+      finish = start + 1
+      finish += expression[finish] == "\\" ? 2 : 1 until expression[finish] == '"'
+      finish
+    end
+
     # Splits a union on its top-level ` | `, outside parentheses, brackets and strings.
     def split_union(expression)
       parts = []
@@ -451,8 +481,7 @@ module OpenAPI
       while index < expression.length
         char = expression[index]
         if char == '"'
-          finish = index + 1
-          finish += expression[finish] == "\\" ? 2 : 1 until expression[finish] == '"'
+          finish = string_end(expression, index)
           current << expression[index..finish]
           index = finish + 1
           next
@@ -512,7 +541,9 @@ module OpenAPI
     if mode == "sync"
       source, contract = download
       parsed = JSON.parse(contract) # fail early on a broken document
-      raise "The downloaded file is not an OpenAPI document" unless parsed.is_a?(Hash) && parsed.key?("openapi") && parsed.key?("paths")
+      unless parsed.is_a?(Hash) && parsed.key?("openapi") && parsed.key?("paths")
+        raise "The downloaded file is not an OpenAPI document"
+      end
 
       File.write(CONTRACT_PATH, contract.end_with?("\n") ? contract : "#{contract}\n")
       puts "Copied #{source} to openapi/openapi.json"

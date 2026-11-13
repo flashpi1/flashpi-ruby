@@ -46,6 +46,11 @@ module Flashpi
 
       private
 
+      # The request of an operation: its path from a template and its ids (see {Path.of}).
+      def operation(http_method, template, *ids, **settings)
+        RequestSpec.new(http_method:, path: Path.of(template, *ids), **settings)
+      end
+
       # Sends the request (with its retries) and returns its data.
       def send_request(spec)
         send_call(spec).data
