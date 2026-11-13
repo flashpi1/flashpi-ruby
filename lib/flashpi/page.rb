@@ -22,8 +22,9 @@ module Flashpi
     # @yieldparam cursor [String] the cursor of the next page
     # @yieldreturn [Page] the next page
     def initialize(body, &fetch_page)
-      data = body.is_a?(Hash) ? body[:data] : nil
-      pagination = body.is_a?(Hash) ? body[:pagination] : nil
+      members = body.is_a?(Hash) ? body : {} #: Hash[untyped, untyped]
+      data = members[:data]
+      pagination = members[:pagination]
       raise Error, "The API answered a list without data and pagination" unless data.is_a?(Array) && pagination.is_a?(Hash)
 
       @data = data
@@ -48,9 +49,10 @@ module Flashpi
     # @return [Page, nil]
     def next_page
       cursor = @next_cursor
-      return nil unless @has_more && cursor && @fetch_page
+      fetch_page = @fetch_page
+      return nil unless @has_more && cursor && fetch_page
 
-      @fetch_page.call(cursor)
+      fetch_page.call(cursor)
     end
 
     # Yields every item of this page and of the following ones, fetching them as needed.
@@ -60,10 +62,13 @@ module Flashpi
     def each(&block)
       return enum_for(:each) unless block
 
-      page = self
-      while page
+      page = self #: Page[untyped]
+      loop do
         page.data.each(&block)
-        page = page.next_page
+        following = page.next_page
+        break if following.nil?
+
+        page = following
       end
       self
     end

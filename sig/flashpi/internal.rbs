@@ -1,0 +1,350 @@
+# The SDK's internals: not part of its API, and free to change in any release.
+module Flashpi
+  module Internal
+    class Secret[out T]
+      @reader: ^() -> T
+
+      def initialize: (T value) -> void
+      def reveal: () -> T
+      def marshal_dump: () -> bot
+      def _dump: (Integer level) -> bot
+    end
+
+    module Validate
+      MAX_TIMEOUT: Float
+      TOKEN: Regexp
+      AROUND: Regexp
+      CONTROL: Regexp
+      FRAMING: Array[String]
+
+      def self?.timeout!: (String name, untyped value) -> Float
+      def self?.retries!: (String name, untyped value) -> Integer
+      def self?.header_name!: (untyped name) -> String
+      def self?.header_value!: (String label, untyped value) -> String
+      def self?.headers!: (String label, untyped headers) -> Hash[String, String]
+      def self?.utf8: (String text) -> String?
+    end
+
+    module JSONText
+      class Invalid < StandardError
+      end
+
+      MAX_NESTING: Integer
+
+      def self?.encode: (untyped body) -> String
+      def self?.parse: (String text) -> untyped
+      def self?.decode: (String bytes) -> String
+      def self?.plain: (untyped value, Hash[Integer, bool] seen) -> untyped
+      def self?.plain_hash: (Hash[untyped, untyped] hash, Hash[Integer, bool] seen) -> Hash[String, untyped]
+      def self?.key_text: (untyped key) -> String
+      def self?.nested: [R] (Object container, Hash[Integer, bool] seen) { () -> R } -> R
+      def self?.text: (String value) -> String
+    end
+
+    module Problems
+      ERROR_CLASSES: Hash[Integer, singleton(APIError)]
+      DELTA_SECONDS: Regexp
+      MAX_DELTA_DIGITS: Integer
+      MAX_DELTA: Integer
+      TIME_ZONE: Regexp
+
+      def self?.error: (Integer status, Hash[String, String] headers, String body_text) -> APIError
+      def self?.parse: (String body_text) -> Types::problem?
+      def self?.message: (Integer status, Types::problem? problem, String body_text) -> String
+      def self?.text: (untyped value) -> String?
+      def self?.retry_after: (String? value, ?Float now) -> Integer?
+      def self?.date: (String value) -> Float?
+      def self?.iso8601: (String value) -> Float?
+    end
+
+    class ClientConfig
+      @api_key: Secret[String]
+
+      attr_reader base_url: String
+      attr_reader timeout: Float
+      attr_reader max_retries: Integer
+      attr_reader language: String?
+      attr_reader default_headers: Hash[String, String]
+
+      def initialize: (
+        api_key: String, base_url: String, timeout: Float, max_retries: Integer, language: String?,
+        default_headers: Hash[String, String]
+      ) -> void
+      def api_key: () -> String
+    end
+
+    type http_method = :get | :post | :patch | :delete
+    type response_type = :json | :text | :bytes | :none
+
+    class RequestSpec
+      attr_reader http_method: http_method
+      attr_reader path: String
+      attr_reader query: Hash[untyped, untyped]?
+      attr_reader body: untyped
+      attr_reader multipart: Multipart?
+      attr_reader accept: String
+      attr_reader response_type: response_type
+      attr_reader options: Hash[Symbol, untyped]
+      attr_reader min_timeout: Float
+      attr_reader recover_document: bool
+
+      def initialize: (
+        http_method: http_method, path: String, ?query: Hash[untyped, untyped]?, ?body: untyped,
+        ?multipart: Multipart?, ?accept: String, ?response_type: response_type,
+        ?options: Hash[Symbol, untyped], ?min_timeout: Float, ?recover_document: bool
+      ) -> void
+      def with_query: (Hash[untyped, untyped] query) -> RequestSpec
+    end
+
+    class Attempt
+      @headers: Secret[Hash[String, String]]
+
+      attr_reader http_method: http_method
+      attr_reader url: String
+      attr_reader target: String
+      attr_reader content: String?
+      attr_reader timeout: Float
+      attr_reader response_type: response_type
+
+      def initialize: (
+        http_method: http_method, url: String, target: String, headers: Hash[String, String],
+        content: String?, timeout: Float, response_type: response_type
+      ) -> void
+      def headers: () -> Hash[String, String]
+      def verb: () -> String
+    end
+
+    class RawResponse
+      attr_reader status: Integer
+      attr_reader headers: Hash[String, String]
+      attr_reader body: String
+
+      def initialize: (Integer status, Hash[String, String] headers, String body) -> void
+    end
+
+    module Path
+      UNRESERVED: Regexp
+
+      def self?.of: (String template, *untyped ids) -> String
+      def self?.encode: (String text) -> String
+    end
+
+    interface _Clock
+      def now: () -> Float
+      def sleep: (Float seconds) -> untyped
+      def rand: () -> Float
+    end
+
+    module Clock
+      def self?.now: () -> Float
+      def self?.sleep: (Float seconds) -> untyped
+      def self?.rand: () -> Float
+    end
+
+    class Multipart
+      MAX_CERTIFICATE_BYTES: Integer
+      DEFAULT_FILENAME: String
+      CONTENT_TYPE: String
+      PIECE: Integer
+
+      @body: Secret[String]
+
+      attr_reader content_type: String
+
+      def self.certificate: (untyped upload) -> Multipart
+      def self.member: (Hash[untyped, untyped] upload, Symbol name) -> untyped
+      def self.read: (untyped file) -> String
+      def self.read_io: (untyped file) -> String
+      def self.refuse!: (singleton(Exception) error, String message) -> bot
+
+      def initialize: (String password, String content, String filename) -> void
+      def content: () -> String
+
+      private
+
+      def encode: (String boundary, String password, String content, String filename) -> String
+      def escape: (String filename) -> String
+    end
+
+    class Deadline
+      @clock: _Clock
+      @end: Float
+
+      def initialize: (Float seconds, ?_Clock clock) -> void
+      def left: () -> Float
+      def passed?: () -> bool
+      def left!: (singleton(Exception) error) -> Float
+      def limit: (Float? timeout, singleton(Exception) error) -> Float
+    end
+
+    module DeadlineHTTP : Net::HTTP
+      @socket: untyped
+
+      attr_accessor flashpi_deadline: Deadline?
+
+      private
+
+      def connect: () -> void
+      def ssl_socket_connect: (OpenSSL::SSL::SSLSocket socket, Float? timeout) -> void
+      def on_connect: () -> void
+    end
+
+    class DeadlineSocket
+      @http: DeadlineHTTP
+
+      attr_reader io: untyped
+
+      def initialize: (untyped io, DeadlineHTTP http) -> void
+      def read_nonblock: (Integer length, ?String? buffer, ?exception: bool) -> (String | Symbol | nil)
+      def write_nonblock: (String data, ?exception: bool) -> (Integer | Symbol)
+      def to_io: () -> self
+      def wait_readable: (?Float? timeout) -> untyped
+      def wait_writable: (?Float? timeout) -> untyped
+      def close: () -> untyped
+      def closed?: () -> bool
+      def eof?: () -> bool
+      def respond_to_missing?: (Symbol name, ?bool include_private) -> bool
+      def method_missing: (Symbol name, *untyped args, **untyped options) ?{ (*untyped) -> untyped } -> untyped
+
+      private
+
+      def deadline: () -> Deadline?
+      def limited: (Float? timeout, singleton(Exception) error) -> Float?
+    end
+
+    class Transport
+      MAX_IDLE: Integer
+      CONNECTION_ERRORS: Array[singleton(Exception)]
+      TIMEOUT_ERRORS: Array[singleton(Exception)]
+      REQUESTS: Hash[Symbol, singleton(Net::HTTP::Get) | singleton(Net::HTTP::Post) | singleton(Net::HTTP::Patch) | singleton(Net::HTTP::Delete)]
+
+      @host: String
+      @port: Integer
+      @use_ssl: bool
+      @clock: _Clock
+      @idle: Array[Net::HTTP & DeadlineHTTP]
+      @mutex: Thread::Mutex
+      @pid: Integer
+
+      def initialize: (String base_url, ?_Clock clock) -> void
+      def perform: (Attempt attempt) -> RawResponse
+      def close: () -> nil
+
+      private
+
+      def exchange: (Net::HTTP & DeadlineHTTP http, Attempt attempt, Deadline deadline) -> RawResponse
+      def limit_timeouts: (Net::HTTP http, Deadline deadline) -> void
+      def build_request: (Attempt attempt) -> Net::HTTPRequest
+      def checkout: () -> (Net::HTTP & DeadlineHTTP)
+      def checkin: (Net::HTTP & DeadlineHTTP http) -> void
+      def discard: (Net::HTTP http) -> void
+      def connect: () -> (Net::HTTP & DeadlineHTTP)
+      def forked?: () -> bool
+      def seconds: (Float value) -> String
+    end
+
+    class Engine
+      USER_AGENT: String
+      MAX_RETRY_AFTER: Integer
+      INITIAL_RETRY_DELAY: Float
+      MAX_RETRY_DELAY: Float
+      IN_PROGRESS_FIRST_WAIT: Float
+      IN_PROGRESS_MAX_WAIT: Float
+      IN_PROGRESS: String
+      OPTION_NAMES: Array[Symbol]
+
+      class Call < Struct[untyped]
+        attr_accessor options: Hash[Symbol, untyped]
+        attr_accessor max_retries: Integer
+        attr_accessor timeout: Float
+        attr_accessor url: String
+        attr_accessor target: String
+        attr_accessor idempotency_key: String?
+        attr_accessor content: String?
+
+        def self.new: (
+          options: Hash[Symbol, untyped], max_retries: Integer, timeout: Float, url: String, target: String,
+          idempotency_key: String?, content: String?
+        ) -> instance
+      end
+
+      @base_path: String
+
+      attr_reader config: ClientConfig
+      attr_accessor transport: Transport
+      attr_accessor clock: _Clock
+
+      def initialize: (ClientConfig config, Transport transport, ?_Clock clock) -> void
+      def request: (RequestSpec spec) -> APIResponse[untyped]
+
+      private
+
+      def attempt_once: (RequestSpec spec, Call call) -> (APIResponse[untyped] | APIError | APIConnectionError)
+      def prepare: (RequestSpec spec) -> Call
+      def body_content: (RequestSpec spec) -> String?
+      def attempt_of: (RequestSpec spec, Call call) -> Attempt
+      def recover_document: (Call call, String document_id) -> APIResponse[untyped]
+      def retry_delay: (Error failure, Integer retries) -> Float?
+      def backoff: (Integer retries) -> Float
+      def recoverable_document: (RequestSpec spec, APIError failure) -> String?
+      def deleted: (APIError failure) -> APIResponse[nil]
+      def check_options: (Hash[Symbol, untyped] options) -> Hash[Symbol, untyped]
+      def language: (String label, untyped value) -> String
+      def idempotency_key_of: (http_method http_method, Hash[Symbol, untyped] options) -> String?
+      def build_target: (String path, Hash[untyped, untyped]? query) -> String
+      def query_name: (untyped name) -> String
+      def query_value: (untyped value) -> String
+      def build_headers: (RequestSpec spec, Call call) -> Hash[String, String]
+      def read_response: (RawResponse raw, response_type response_type) -> (APIResponse[untyped] | APIError)
+      def read_data: (RawResponse raw, response_type response_type) -> untyped
+    end
+
+    class Resource
+      @engine: Engine
+      @with_response: ResponseView?
+
+      def self.response_methods: (*Symbol names) -> void
+
+      def initialize: (Engine engine) -> void
+      def with_response: () -> ResponseView
+
+      private
+
+      def send_request: (RequestSpec spec) -> untyped
+      def send_call: (RequestSpec spec) -> APIResponse[untyped]
+      def paginate: (RequestSpec spec) -> Page[untyped]
+      def fetch_page: (RequestSpec spec, RequestSpec page_spec) -> APIResponse[Page[untyped]]
+    end
+
+    class ResponseView
+      SLOT: Symbol
+
+      @resource: Resource
+
+      def self.record: (APIResponse[untyped] result) -> void
+
+      def initialize: (Resource resource) -> void
+
+      private
+
+      attr_reader resource: Resource
+
+      def capture: [T] () { () -> T } -> APIResponse[T]
+    end
+
+    module Settings
+      API_KEY_CHARACTERS: Regexp
+      JS_SPACE: String
+      AROUND: Regexp
+
+      def self?.configure: (
+        untyped api_key, base_url: untyped, timeout: untyped, max_retries: untyped, language: untyped,
+        default_headers: untyped
+      ) -> ClientConfig
+      def self?.refuse!: (String message) -> bot
+      def self?.http_url?: (untyped url) -> bool
+      def self?.trimmed_key: (untyped api_key) -> String
+      def self?.key_problem: (String key) -> String?
+    end
+  end
+end

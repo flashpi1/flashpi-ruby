@@ -89,12 +89,14 @@ module Flashpi
         return {} if headers.nil?
         raise TypeError, "#{label} must be a Hash of header names to values" unless headers.is_a?(Hash)
 
-        headers.each_with_object({}) do |(name, value), checked|
+        checked = {} #: Hash[String, String]
+        headers.each do |name, value|
           valid = header_name!(name)
           raise ArgumentError, "#{valid.inspect} is set by the SDK from the body: leave it out" if FRAMING.include?(valid.downcase)
 
           checked[valid] = header_value!("The value of header #{valid.inspect}", value)
         end
+        checked
       end
 
       # The text as valid UTF-8, or nil when it cannot be. Binary strings are read as UTF-8.

@@ -1,0 +1,8 @@
+# The standard libraries these signatures refer to, for `rbs collection` in the projects that
+# use the gem.
+dependencies:
+  - name: net-http
+  - name: net-protocol
+  - name: openssl
+  - name: uri
+  - name: timeout

@@ -20,8 +20,9 @@ module Flashpi
       def self.response_methods(*names)
         view = Class.new(ResponseView)
         names.each do |name|
+          # Defined at run time, so its body is outside Steep's view of the class.
           view.define_method(name) do |*args, **options, &block|
-            capture { resource.public_send(name, *args, **options, &block) }
+            capture { resource.public_send(name, *args, **options, &block) } # steep:ignore
           end
         end
         const_set(:WithResponse, view)
@@ -36,7 +37,7 @@ module Flashpi
       #
       # @return [ResponseView]
       def with_response
-        @with_response ||= self.class::WithResponse.new(self)
+        @with_response ||= self.class::WithResponse.new(self) # steep:ignore UnknownConstant
       end
 
       def inspect
@@ -101,7 +102,8 @@ module Flashpi
 
       def capture
         previous = Thread.current[SLOT]
-        slot = {}
+        slot = {} #: Hash[Symbol, APIResponse[untyped]]
+        data = nil #: untyped
         Thread.current[SLOT] = slot
         begin
           data = yield

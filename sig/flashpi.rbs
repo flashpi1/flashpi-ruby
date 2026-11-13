@@ -1,0 +1,186 @@
+# The official Ruby SDK for Flashpi, the electronic invoicing API for Ecuador's SRI.
+module Flashpi
+  VERSION: String
+
+  # The address of the Flashpi API.
+  DEFAULT_BASE_URL: String
+
+  # Seconds each attempt of a request may take, from sending it to reading the whole answer.
+  DEFAULT_TIMEOUT: Float
+
+  # Retries after network errors, timeouts, 429 and 5xx.
+  DEFAULT_MAX_RETRIES: Integer
+
+  # Every error this gem raises extends this class, except for invalid arguments (ArgumentError and
+  # TypeError).
+  class Error < StandardError
+    # The Idempotency-Key a failed POST used, or nil: pass it back to try the same operation again
+    # without issuing twice.
+    attr_accessor idempotency_key: String?
+  end
+
+  # The API answered with an error status. Branch on `code`, never on `message`.
+  class APIError < Error
+    attr_reader status: Integer
+    attr_reader code: Types::api_error_code?
+    attr_reader title: String?
+    attr_reader detail: String?
+    attr_reader errors: Array[Types::field_error]
+    attr_reader request_id: String?
+    attr_reader problem: Types::problem?
+    attr_reader headers: Hash[String, String]
+
+    def initialize: (Integer status, Hash[String, String] headers, Types::problem? problem, ?String body_text) -> void
+
+    # Seconds the API asked to wait before trying again (`Retry-After`), or nil.
+    def retry_after: () -> Integer?
+  end
+
+  class BadRequestError < APIError
+  end
+
+  class AuthenticationError < APIError
+  end
+
+  class PermissionDeniedError < APIError
+  end
+
+  class NotFoundError < APIError
+  end
+
+  class ConflictError < APIError
+  end
+
+  class UnprocessableEntityError < APIError
+  end
+
+  class RateLimitError < APIError
+  end
+
+  class InternalServerError < APIError
+  end
+
+  # The request never got an answer (DNS, TLS, connection reset, ...).
+  class APIConnectionError < Error
+  end
+
+  # The request took longer than the `timeout` option.
+  class APITimeoutError < APIConnectionError
+  end
+
+  # Why a webhook was rejected.
+  type webhook_verification_reason = :missing_headers | :invalid_timestamp | :timestamp_out_of_range
+                                   | :no_matching_signature | :invalid_secret | :invalid_payload
+
+  # A webhook did not come from Flashpi, was altered, or is too old: answer 400 and ignore it.
+  class WebhookVerificationError < Error
+    attr_reader reason: webhook_verification_reason
+
+    def initialize: (webhook_verification_reason reason, String message) -> void
+  end
+
+  # The data of a call together with the HTTP answer it came from (`with_response`).
+  class APIResponse[out T]
+    attr_reader data: T
+    attr_reader status: Integer
+    attr_reader headers: Hash[String, String]
+    attr_reader request_id: String?
+
+    def initialize: (data: T, status: Integer, headers: Hash[String, String], request_id: String?) -> void
+  end
+
+  # One page of a list. Enumerable over every item of this page and the following ones.
+  class Page[out T]
+    include Enumerable[T]
+
+    @has_more: bool
+    @fetch_page: (^(String cursor) -> Page[T])?
+
+    attr_reader data: Array[T]
+    attr_reader next_cursor: String?
+
+    def initialize: (untyped body) ?{ (String cursor) -> Page[T] } -> void
+    def has_more?: () -> bool
+    def has_next_page?: () -> bool
+    def next_page: () -> Page[T]?
+    def each: () { (T item) -> void } -> self
+            | () -> Enumerator[T, self]
+  end
+
+  # The Flashpi API client.
+  class Client
+    attr_reader environment: String
+    attr_reader invoices: Resources::Invoices
+    attr_reader credit_notes: Resources::CreditNotes
+    attr_reader debit_notes: Resources::DebitNotes
+    attr_reader purchase_settlements: Resources::PurchaseSettlements
+    attr_reader waybills: Resources::Waybills
+    attr_reader withholdings: Resources::Withholdings
+    attr_reader documents: Resources::Documents
+    attr_reader issuers: Resources::Issuers
+    attr_reader issuer_onboardings: Resources::IssuerOnboardings
+    attr_reader webhook_endpoints: Resources::WebhookEndpoints
+    attr_reader events: Resources::Events
+    attr_reader status: Resources::Status
+
+    @transport: Internal::Transport
+    @engine: Internal::Engine
+
+    def initialize: (
+      ?api_key: String?, ?base_url: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+      ?language: Types::request_language?, ?default_headers: Types::headers?
+    ) -> void
+
+    # Verify the signature of the webhooks you receive (no API key needed).
+    def webhooks: () -> singleton(Webhooks)
+
+    def base_url: () -> String
+
+    # Closes the connections kept open for the next requests.
+    def close: () -> nil
+  end
+
+  # Verification of the webhooks Flashpi sends (Standard Webhooks).
+  module Webhooks
+    TOLERANCE_SECONDS: Integer
+    SECRET_PREFIX: String
+    MIN_SECRET_BYTES: Integer
+    MAX_SECRET_BYTES: Integer
+    SIGNATURE_BYTES: Integer
+    TIMESTAMP: Regexp
+    BASE64: Regexp
+    NO_MATCH: String
+
+    # Request headers: a Hash in any letter case, a Rack env, or anything that yields name and
+    # value pairs (Rails' `request.headers`).
+    type headers = Hash[untyped, untyped] | _EachPair
+
+    interface _EachPair
+      def each: () { ([untyped, untyped]) -> void } -> untyped
+    end
+
+    # Checks that a webhook comes from Flashpi and is recent; raises WebhookVerificationError
+    # otherwise.
+    def self.verify_signature: (
+      String payload, headers headers, String secret, ?tolerance: Types::seconds?, ?now: (Time | Types::seconds)?
+    ) -> nil
+
+    # Verifies a webhook and returns its parsed body.
+    def self.unwrap: (
+      String payload, headers headers, String secret, ?tolerance: Types::seconds?, ?now: (Time | Types::seconds)?
+    ) -> Types::webhook_event
+
+    def self.parse: (String payload) -> untyped
+    def self.reject!: (webhook_verification_reason reason, String message) -> bot
+    def self.header: (untyped headers, String name) -> String?
+    def self.signing_key: (untyped secret) -> Internal::Secret[String]
+    def self.key_size: (String secret) -> Integer
+    def self.encoded_key: (String secret) -> String
+    def self.signed?: (Internal::Secret[String] key, String message, String signatures) -> bool
+    def self.decode_base64: (String value) -> String?
+    def self.payload_bytes: (untyped payload) -> String
+    def self.verify_options: (untyped tolerance, untyped now) -> [Float, Float]
+    def self.clock: (untyped now) -> Float
+    def self.shown: (Float seconds) -> String
+  end
+end

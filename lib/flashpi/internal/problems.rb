@@ -20,6 +20,7 @@ module Flashpi
       DELTA_SECONDS = /\A[0-9]+\z/
       # Longer digit strings are past any useful wait.
       MAX_DELTA_DIGITS = 18
+      MAX_DELTA = 1_000_000_000_000_000_000
       TIME_ZONE = /(?:Z|[+-][0-9]{2}(?::?[0-9]{2})?)\z/i
 
       module_function
@@ -75,7 +76,7 @@ module Flashpi
 
         trimmed = value.strip
         if DELTA_SECONDS.match?(trimmed)
-          return trimmed.length <= MAX_DELTA_DIGITS ? trimmed.to_i : 10**MAX_DELTA_DIGITS
+          return trimmed.length <= MAX_DELTA_DIGITS ? trimmed.to_i : MAX_DELTA
         end
 
         moment = date(trimmed)
@@ -98,8 +99,8 @@ module Flashpi
       # @return [Float, nil]
       def iso8601(value)
         if /\A[0-9]{4}-[0-9]{2}-[0-9]{2}\z/.match?(value)
-          year, month, day = value.split("-").map(&:to_i)
-          return Time.utc(year, month, day).to_f
+          parts = value.split("-").map(&:to_i)
+          return Time.utc(parts.fetch(0), parts.fetch(1), parts.fetch(2)).to_f
         end
         Time.iso8601(TIME_ZONE.match?(value) ? value : "#{value}Z").to_f
       rescue ArgumentError

@@ -176,7 +176,7 @@ module Flashpi
       # Exponential backoff from 0.5 s up to 8 s, minus up to 25 % of jitter.
       def backoff(retries)
         delay = [INITIAL_RETRY_DELAY * (2**[retries, 16].min), MAX_RETRY_DELAY].min
-        (delay * (1 - (clock.rand * 0.25))).round(3)
+        (delay * (1 - (clock.rand * 0.25))).round(3).to_f
       end
 
       # The id of the document an earlier attempt of this call created, if the answer shows one.
@@ -232,7 +232,7 @@ module Flashpi
       def build_target(path, query)
         pairs = (query || {}).filter_map do |name, value|
           [query_name(name), query_value(value)] unless value.nil?
-        end
+        end #: Array[[String, String]]
         search = URI.encode_www_form(pairs)
         search.empty? ? path : "#{path}?#{search}"
       end

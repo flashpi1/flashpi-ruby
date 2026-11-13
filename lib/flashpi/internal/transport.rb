@@ -65,20 +65,20 @@ module Flashpi
       def connect
         deadline = flashpi_deadline
         @open_timeout = deadline.left!(Net::OpenTimeout) if deadline
-        super
+        super # steep:ignore
       end
 
       def ssl_socket_connect(socket, timeout)
         deadline = flashpi_deadline
-        super(socket, deadline ? deadline.limit(timeout, Net::OpenTimeout) : timeout)
+        super(socket, deadline ? deadline.limit(timeout, Net::OpenTimeout) : timeout) # steep:ignore
       end
 
       def on_connect
-        super
+        super # steep:ignore
         socket = @socket
-        return unless socket.is_a?(Net::BufferedIO) && !socket.io.is_a?(DeadlineSocket)
+        return unless socket.is_a?(Net::BufferedIO) && !socket.io.is_a?(DeadlineSocket) # steep:ignore
 
-        @socket = Net::BufferedIO.new(
+        @socket = Net::BufferedIO.new( # steep:ignore
           DeadlineSocket.new(socket.io, self),
           read_timeout: socket.read_timeout,
           write_timeout: socket.write_timeout,
@@ -237,7 +237,7 @@ module Flashpi
       # Closes the idle connections. The transport can still be used: it opens new ones.
       def close
         idle = @mutex.synchronize do
-          connections = forked? ? [] : @idle
+          connections = forked? ? [] : @idle #: Array[Net::HTTP & DeadlineHTTP]
           @idle = []
           connections
         end
@@ -256,7 +256,7 @@ module Flashpi
         limit_timeouts(http, deadline)
         http.start unless http.started?
         status = 0
-        headers = {}
+        headers = {} #: Hash[String, String]
         body = String.new(encoding: Encoding::BINARY)
         http.request(build_request(attempt), attempt.content) do |response|
           status = response.code.to_i
@@ -283,7 +283,8 @@ module Flashpi
       # A request net/http refuses to build raises Flashpi::Error, not retried, and without its
       # reason, which may quote the refused header (possibly the Authorization one).
       def build_request(attempt)
-        REQUESTS.fetch(attempt.http_method).new(attempt.target, attempt.headers)
+        request_class = REQUESTS.fetch(attempt.http_method) #: singleton(Net::HTTPRequest)
+        request_class.new(attempt.target, attempt.headers)
       rescue ArgumentError
         raise Error, "#{attempt.verb} #{attempt.url} was not sent: net/http refused it as invalid HTTP", cause: nil
       end
@@ -323,7 +324,7 @@ module Flashpi
         # The SDK retries by its own rules (idempotency keys, recoveries), never net/http.
         http.max_retries = 0
         http.extend(DeadlineHTTP)
-        http
+        _ = http
       end
 
       def forked?

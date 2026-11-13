@@ -1,0 +1,712 @@
+# The resources of the client: `client.invoices`, `client.documents`, `client.issuers`...
+#
+# Every method takes the per-call options as keywords: `idempotency_key` (POSTs), `timeout`,
+# `max_retries`, `language`, `correlation_id` and `extra_headers`.
+module Flashpi
+  module Resources
+    # Issues one document type.
+    class DocumentIssuer[B] < Internal::Resource
+      # The path of the document type, set by each subclass.
+      PATH: String
+      DEFAULT_WAIT_SECONDS: Integer
+      SYNC_MARGIN_SECONDS: Integer
+      def self.sync_timeout_floor: (untyped body) -> Float
+      def self.member: (untyped value, Symbol name) -> untyped
+
+      def with_response: () -> DocumentIssuer::WithResponse[B]
+
+      def create: (
+        B body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::document
+    end
+
+    # `DocumentIssuer`'s methods, returning an APIResponse with the HTTP status, headers and request id.
+    class DocumentIssuer::WithResponse[B] < Internal::ResponseView
+      def initialize: (DocumentIssuer[B] resource) -> void
+
+      def create: (
+        B body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::document]
+    end
+
+    # Every issued document, of any type: search, XML, RIDE (PDF) and email.
+    class Documents < Internal::Resource
+      XML_ACCEPT: String
+      PDF_ACCEPT: String
+      XML_KINDS: Array[String]
+
+      def with_response: () -> Documents::WithResponse
+
+      def list: (
+        ?Types::document_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Page[Types::document]
+
+      def get: (
+        String document_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::document
+
+      def xml: (
+        String document_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::document_xml
+
+      def pdf: (
+        String document_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> String
+
+      def send_email: (
+        String document_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::document
+    end
+
+    # `Documents`'s methods, returning an APIResponse with the HTTP status, headers and request id.
+    class Documents::WithResponse < Internal::ResponseView
+      def initialize: (Documents resource) -> void
+
+      def list: (
+        ?Types::document_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Page[Types::document]]
+
+      def get: (
+        String document_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::document]
+
+      def xml: (
+        String document_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::document_xml]
+
+      def pdf: (
+        String document_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[String]
+
+      def send_email: (
+        String document_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::document]
+    end
+
+    # Emission points (the second 3-digit series code) of an establishment.
+    class EmissionPoints < Internal::Resource
+      PATH: String
+      ITEM: String
+
+      def with_response: () -> EmissionPoints::WithResponse
+
+      def create: (
+        String issuer_id,
+        String establishment_id,
+        Types::create_emission_point body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::emission_point
+
+      def list: (
+        String issuer_id,
+        String establishment_id,
+        ?Types::emission_point_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Page[Types::emission_point]
+
+      def get: (
+        String issuer_id,
+        String establishment_id,
+        String emission_point_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::emission_point
+
+      def delete: (
+        String issuer_id,
+        String establishment_id,
+        String emission_point_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> nil
+    end
+
+    # `EmissionPoints`'s methods, returning an APIResponse with the HTTP status, headers and request id.
+    class EmissionPoints::WithResponse < Internal::ResponseView
+      def initialize: (EmissionPoints resource) -> void
+
+      def create: (
+        String issuer_id,
+        String establishment_id,
+        Types::create_emission_point body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::emission_point]
+
+      def list: (
+        String issuer_id,
+        String establishment_id,
+        ?Types::emission_point_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Page[Types::emission_point]]
+
+      def get: (
+        String issuer_id,
+        String establishment_id,
+        String emission_point_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::emission_point]
+
+      def delete: (
+        String issuer_id,
+        String establishment_id,
+        String emission_point_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[nil]
+    end
+
+    # Establishments (the 3-digit series codes such as `001`) of an issuer.
+    class Establishments < Internal::Resource
+      PATH: String
+      ITEM: String
+
+      attr_reader emission_points: EmissionPoints
+      def initialize: (Internal::Engine engine) -> void
+
+      def with_response: () -> Establishments::WithResponse
+
+      def create: (
+        String issuer_id,
+        Types::create_establishment body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::establishment
+
+      def list: (
+        String issuer_id,
+        ?Types::establishment_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Page[Types::establishment]
+
+      def get: (
+        String issuer_id,
+        String establishment_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::establishment
+
+      def update: (
+        String issuer_id,
+        String establishment_id,
+        Types::update_establishment body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::establishment
+
+      def delete: (
+        String issuer_id,
+        String establishment_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> nil
+    end
+
+    # `Establishments`'s methods, returning an APIResponse with the HTTP status, headers and request id.
+    class Establishments::WithResponse < Internal::ResponseView
+      def initialize: (Establishments resource) -> void
+
+      def create: (
+        String issuer_id,
+        Types::create_establishment body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::establishment]
+
+      def list: (
+        String issuer_id,
+        ?Types::establishment_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Page[Types::establishment]]
+
+      def get: (
+        String issuer_id,
+        String establishment_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::establishment]
+
+      def update: (
+        String issuer_id,
+        String establishment_id,
+        Types::update_establishment body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::establishment]
+
+      def delete: (
+        String issuer_id,
+        String establishment_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[nil]
+    end
+
+    # The .p12 certificates (firmas electrónicas) of an issuer.
+    class Certificates < Internal::Resource
+      PATH: String
+      ITEM: String
+
+      def with_response: () -> Certificates::WithResponse
+
+      def upload: (
+        String issuer_id,
+        Types::certificate_upload upload,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::certificate
+
+      def list: (
+        String issuer_id,
+        ?Types::certificate_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Page[Types::certificate]
+
+      def get: (
+        String issuer_id,
+        String certificate_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::certificate
+    end
+
+    # `Certificates`'s methods, returning an APIResponse with the HTTP status, headers and request id.
+    class Certificates::WithResponse < Internal::ResponseView
+      def initialize: (Certificates resource) -> void
+
+      def upload: (
+        String issuer_id,
+        Types::certificate_upload upload,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::certificate]
+
+      def list: (
+        String issuer_id,
+        ?Types::certificate_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Page[Types::certificate]]
+
+      def get: (
+        String issuer_id,
+        String certificate_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::certificate]
+    end
+
+    # The issuers (RUCs) of the account, with their establishments, emission points and .p12 certificates.
+    class Issuers < Internal::Resource
+      PATH: String
+      ITEM: String
+
+      attr_reader establishments: Establishments
+      attr_reader certificates: Certificates
+      def initialize: (Internal::Engine engine) -> void
+
+      def with_response: () -> Issuers::WithResponse
+
+      def create: (
+        Types::create_issuer body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::issuer
+
+      def list: (
+        ?Types::issuer_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Page[Types::issuer]
+
+      def get: (
+        String issuer_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::issuer
+
+      def update: (
+        String issuer_id,
+        Types::update_issuer body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::issuer
+
+      def delete: (
+        String issuer_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> nil
+    end
+
+    # `Issuers`'s methods, returning an APIResponse with the HTTP status, headers and request id.
+    class Issuers::WithResponse < Internal::ResponseView
+      def initialize: (Issuers resource) -> void
+
+      def create: (
+        Types::create_issuer body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::issuer]
+
+      def list: (
+        ?Types::issuer_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Page[Types::issuer]]
+
+      def get: (
+        String issuer_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::issuer]
+
+      def update: (
+        String issuer_id,
+        Types::update_issuer body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::issuer]
+
+      def delete: (
+        String issuer_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[nil]
+    end
+
+    # Creates an issuer from its .p12 certificate.
+    class IssuerOnboardings < Internal::Resource
+      def with_response: () -> IssuerOnboardings::WithResponse
+
+      def create: (
+        Types::certificate_upload upload,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::issuer_onboarding
+
+      def get: (
+        String onboarding_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::issuer_onboarding
+
+      def complete: (
+        String onboarding_id,
+        ?Types::complete_issuer_onboarding? body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::completed_issuer_onboarding
+    end
+
+    # `IssuerOnboardings`'s methods, returning an APIResponse with the HTTP status, headers and request id.
+    class IssuerOnboardings::WithResponse < Internal::ResponseView
+      def initialize: (IssuerOnboardings resource) -> void
+
+      def create: (
+        Types::certificate_upload upload,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::issuer_onboarding]
+
+      def get: (
+        String onboarding_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::issuer_onboarding]
+
+      def complete: (
+        String onboarding_id,
+        ?Types::complete_issuer_onboarding? body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::completed_issuer_onboarding]
+    end
+
+    # Deliveries of events to one endpoint.
+    class WebhookDeliveries < Internal::Resource
+      PATH: String
+      ITEM: String
+
+      def with_response: () -> WebhookDeliveries::WithResponse
+
+      def list: (
+        String endpoint_id,
+        ?Types::webhook_delivery_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Page[Types::webhook_delivery]
+
+      def get: (
+        String endpoint_id,
+        String delivery_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::webhook_delivery_detail
+
+      def replay: (
+        String endpoint_id,
+        String delivery_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::webhook_delivery_detail
+    end
+
+    # `WebhookDeliveries`'s methods, returning an APIResponse with the HTTP status, headers and request id.
+    class WebhookDeliveries::WithResponse < Internal::ResponseView
+      def initialize: (WebhookDeliveries resource) -> void
+
+      def list: (
+        String endpoint_id,
+        ?Types::webhook_delivery_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Page[Types::webhook_delivery]]
+
+      def get: (
+        String endpoint_id,
+        String delivery_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::webhook_delivery_detail]
+
+      def replay: (
+        String endpoint_id,
+        String delivery_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::webhook_delivery_detail]
+    end
+
+    # The URLs Flashpi sends events to.
+    class WebhookEndpoints < Internal::Resource
+      PATH: String
+      ITEM: String
+
+      attr_reader deliveries: WebhookDeliveries
+      def initialize: (Internal::Engine engine) -> void
+
+      def with_response: () -> WebhookEndpoints::WithResponse
+
+      def create: (
+        Types::create_webhook_endpoint body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::webhook_endpoint
+
+      def list: (
+        ?Types::webhook_endpoint_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Page[Types::webhook_endpoint]
+
+      def get: (
+        String endpoint_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::webhook_endpoint
+
+      def update: (
+        String endpoint_id,
+        Types::update_webhook_endpoint body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::webhook_endpoint
+
+      def delete: (
+        String endpoint_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> nil
+
+      def get_secret: (
+        String endpoint_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::webhook_endpoint_secret
+
+      def rotate_secret: (
+        String endpoint_id,
+        ?Types::rotate_webhook_endpoint_secret? body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::webhook_endpoint
+
+      def verify: (
+        String endpoint_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::webhook_endpoint
+    end
+
+    # `WebhookEndpoints`'s methods, returning an APIResponse with the HTTP status, headers and request id.
+    class WebhookEndpoints::WithResponse < Internal::ResponseView
+      def initialize: (WebhookEndpoints resource) -> void
+
+      def create: (
+        Types::create_webhook_endpoint body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::webhook_endpoint]
+
+      def list: (
+        ?Types::webhook_endpoint_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Page[Types::webhook_endpoint]]
+
+      def get: (
+        String endpoint_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::webhook_endpoint]
+
+      def update: (
+        String endpoint_id,
+        Types::update_webhook_endpoint body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::webhook_endpoint]
+
+      def delete: (
+        String endpoint_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[nil]
+
+      def get_secret: (
+        String endpoint_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::webhook_endpoint_secret]
+
+      def rotate_secret: (
+        String endpoint_id,
+        ?Types::rotate_webhook_endpoint_secret? body,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::webhook_endpoint]
+
+      def verify: (
+        String endpoint_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::webhook_endpoint]
+    end
+
+    # Events: what happened to documents, certificates and email sending, newest first.
+    class Events < Internal::Resource
+      def with_response: () -> Events::WithResponse
+
+      def list: (
+        ?Types::event_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Page[Types::event]
+
+      def get: (
+        String event_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::event
+    end
+
+    # `Events`'s methods, returning an APIResponse with the HTTP status, headers and request id.
+    class Events::WithResponse < Internal::ResponseView
+      def initialize: (Events resource) -> void
+
+      def list: (
+        ?Types::event_list_params? params,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Page[Types::event]]
+
+      def get: (
+        String event_id,
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::event]
+    end
+
+    # The API's own status.
+    class Status < Internal::Resource
+      def with_response: () -> Status::WithResponse
+
+      def get: (
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> Types::status
+    end
+
+    # `Status`'s methods, returning an APIResponse with the HTTP status, headers and request id.
+    class Status::WithResponse < Internal::ResponseView
+      def initialize: (Status resource) -> void
+
+      def get: (
+        ?idempotency_key: String?, ?timeout: Types::seconds?, ?max_retries: Integer?,
+        ?language: Types::request_language?, ?correlation_id: String?, ?extra_headers: Types::headers?
+      ) -> APIResponse[Types::status]
+    end
+
+    # Invoices (facturas).
+    class Invoices < DocumentIssuer[Types::create_invoice]
+      PATH: String
+    end
+
+    # Credit notes (notas de crédito).
+    class CreditNotes < DocumentIssuer[Types::create_credit_note]
+      PATH: String
+    end
+
+    # Debit notes (notas de débito).
+    class DebitNotes < DocumentIssuer[Types::create_debit_note]
+      PATH: String
+    end
+
+    # Purchase settlements (liquidaciones de compra).
+    class PurchaseSettlements < DocumentIssuer[Types::create_purchase_settlement]
+      PATH: String
+    end
+
+    # Waybills (guías de remisión).
+    class Waybills < DocumentIssuer[Types::create_waybill]
+      PATH: String
+    end
+
+    # Withholding receipts (comprobantes de retención).
+    class Withholdings < DocumentIssuer[Types::create_withholding]
+      PATH: String
+    end
+  end
+end

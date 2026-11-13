@@ -117,7 +117,7 @@ module Flashpi
                                     accept: XML_ACCEPT, response_type: :text, options:)
         )
         kind = result.headers["flashpi-xml-kind"]
-        { xml: result.data, kind: XML_KINDS.include?(kind) ? kind : nil }
+        _ = { xml: result.data, kind: XML_KINDS.include?(kind) ? kind : nil }
       end
 
       # The RIDE (the printable PDF) of an authorized document, as a binary String. Raises a

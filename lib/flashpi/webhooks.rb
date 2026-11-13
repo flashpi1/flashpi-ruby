@@ -79,7 +79,7 @@ module Flashpi
         event = parse(payload)
         reject!(:invalid_payload, "The webhook body is not a JSON object") unless event.is_a?(Hash)
 
-        event
+        _ = event
       end
 
       private
@@ -103,7 +103,7 @@ module Flashpi
         end
 
         env_name = "HTTP_#{name.upcase.tr("-", "_")}"
-        values = []
+        values = [] #: Array[String]
         headers.each do |key, value|
           next unless (key.is_a?(String) || key.is_a?(Symbol)) && (key.to_s.casecmp?(name) || key.to_s == env_name)
 
@@ -128,7 +128,7 @@ module Flashpi
           reject!(:invalid_secret, "The webhook secret is not a complete whsec_ secret: copy it again from the " \
                                    "console or webhook_endpoints.get_secret")
         end
-        Internal::Secret.new(decode_base64(encoded_key(secret)))
+        Internal::Secret.new(decode_base64(encoded_key(secret)) || "")
       end
 
       # The size of a secret's key, or 0 when it is not base64. It returns instead of raising, so
@@ -164,7 +164,7 @@ module Flashpi
         return nil if data.include?("=") || data.length % 4 == 1
 
         # Only the alphabet is left, in a length that decodes once padded.
-        "#{data}#{"=" * (-data.length % 4)}".unpack1("m")
+        "#{data}#{"=" * (-data.length % 4)}".unpack1("m").to_s
       end
 
       def payload_bytes(payload)

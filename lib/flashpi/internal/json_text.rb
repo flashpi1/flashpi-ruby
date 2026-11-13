@@ -65,12 +65,14 @@ module Flashpi
       # @api private
       def plain_hash(hash, seen)
         nested(hash, seen) do
-          hash.each_with_object({}) do |(key, item), result|
+          result = {} #: Hash[String, untyped]
+          hash.each do |key, item|
             name = key_text(key)
             raise ArgumentError, "The body has the key #{name.inspect} twice" if result.key?(name)
 
             result[name] = plain(item, seen)
           end
+          result
         end
       end
 

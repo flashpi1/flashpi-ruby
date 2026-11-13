@@ -27,7 +27,7 @@ module Flashpi
     end
 
     def inspect
-      "#<#{self.class.name} status=#{status} request_id=#{request_id.inspect} data=#{data.inspect}>"
+      "#<#{self.class.name} status=#{status} request_id=#{request_id.inspect} data=#{(_ = data).inspect}>"
     end
   end
 end
