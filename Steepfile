@@ -7,7 +7,8 @@ target :lib do
   signature "sig"
   check "lib"
 
-  library "net-http", "net-protocol", "openssl", "json", "securerandom", "uri", "time", "date", "zlib", "socket", "timeout"
+  library "net-http", "net-protocol", "openssl", "json", "securerandom", "uri", "time", "date", "zlib", "socket",
+          "timeout"
 
   configure_code_diagnostics(D::Ruby.strict) do |hash|
     # The resource methods take the per-call options as `**options`; their signatures list each
