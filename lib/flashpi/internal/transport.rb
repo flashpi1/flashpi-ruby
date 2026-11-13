@@ -284,7 +284,12 @@ module Flashpi
       # reason, which may quote the refused header (possibly the Authorization one).
       def build_request(attempt)
         request_class = REQUESTS.fetch(attempt.http_method) #: singleton(Net::HTTPRequest)
-        request_class.new(attempt.target, attempt.headers)
+        request = request_class.new(attempt.target, attempt.headers)
+        # net/http before 0.7 (Ruby 3.3 and 3.4) gives a POST without a body the Content-Type
+        # application/x-www-form-urlencoded; it is sent with Content-Length: 0 and no Content-Type,
+        # as the other SDKs send it.
+        request.define_singleton_method(:supply_default_content_type) { nil } if attempt.content.nil?
+        request
       rescue ArgumentError
         raise Error, "#{attempt.verb} #{attempt.url} was not sent: net/http refused it as invalid HTTP", cause: nil
       end
