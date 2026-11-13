@@ -1,0 +1,15 @@
+# Bundler and built gems
+/.bundle/
+/vendor/
+/pkg/
+*.gem
+
+# Tool caches and reports
+/coverage/
+/tmp/
+/.steep/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
