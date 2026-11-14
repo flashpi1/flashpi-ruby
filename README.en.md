@@ -3,9 +3,6 @@
 The official Ruby SDK for [Flashpi](https://flashpi.com.ec), the electronic invoicing API for
 Ecuador's SRI.
 
-> **Not published on RubyGems yet.** The first version (0.1.0) is being prepared. Meanwhile, call
-> the API over plain HTTP: see the [documentation](https://flashpi.com.ec/docs/en/).
-
 [Español](https://github.com/flashpi1/flashpi-ruby/blob/main/README.md)
 
 - The 45 operations of the API: the six document types, documents (XML, RIDE PDF, email),
