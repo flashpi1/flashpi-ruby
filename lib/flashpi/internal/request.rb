@@ -153,6 +153,8 @@ module Flashpi
     module Path
       # What `encodeURIComponent` leaves as it is.
       UNRESERVED = /[^A-Za-z0-9\-_.!~*'()]/
+      # An id of spaces only.
+      BLANK = /\A[[:space:]]*\z/
 
       module_function
 
@@ -175,22 +177,32 @@ module Flashpi
         shown = template.gsub("{}", "{id}")
         path = parts.first.to_s
         ids.each_with_index do |id, index|
-          raise Error, "Missing id in #{shown}: got #{id.inspect}" unless id.is_a?(String) && !id.strip.empty?
-          raise Error, "Invalid id in #{shown}: #{id.inspect}" if [".", ".."].include?(id)
-
-          path += encode(id) + parts.fetch(index + 1)
+          path += encode(segment(id, shown)) + parts.fetch(index + 1)
         end
         path
       end
 
-      # Percent-encodes as `encodeURIComponent` does (UTF-8 bytes).
+      # An id as UTF-8 text, checked once converted: not blank (Unicode spaces included, as
+      # Python's `strip`), and not `.` or `..` in any encoding.
+      #
+      # @return [String]
+      # @raise [Flashpi::Error]
+      def segment(id, shown)
+        raise Error, "Missing id in #{shown}: got #{id.inspect}" unless id.is_a?(String)
+
+        text = Validate.utf8(id)
+        raise Error, "Invalid id in #{shown}: it is not valid UTF-8 text" if text.nil?
+        raise Error, "Missing id in #{shown}: got #{id.inspect}" if BLANK.match?(text)
+        raise Error, "Invalid id in #{shown}: #{text.inspect}" if [".", ".."].include?(text)
+
+        text
+      end
+
+      # Percent-encodes UTF-8 text as `encodeURIComponent` does.
       #
       # @return [String]
       def encode(text)
-        bytes = Validate.utf8(text)
-        raise Error, "An id must be valid UTF-8 text" if bytes.nil?
-
-        bytes.gsub(UNRESERVED) { |char| char.unpack("C*").map { |byte| format("%%%02X", byte) }.join }
+        text.gsub(UNRESERVED) { |char| char.unpack("C*").map { |byte| format("%%%02X", byte) }.join }
       end
     end
 

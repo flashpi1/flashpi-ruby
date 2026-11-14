@@ -34,9 +34,12 @@ module Flashpi
 
         password = member(upload, :password)
         refuse!(Error, "The certificate password must be a String") unless password.is_a?(String)
+        # Sent as UTF-8 text, as the API reads it (a password in another encoding would not match).
+        password = Validate.utf8(password) || refuse!(ArgumentError, "The certificate password must be valid text")
 
         filename = member(upload, :filename) || DEFAULT_FILENAME
         refuse!(TypeError, "The certificate filename must be a String") unless filename.is_a?(String)
+        filename = Validate.utf8(filename) || refuse!(ArgumentError, "The certificate filename must be valid text")
 
         new(password, read(member(upload, :file)), filename)
       end
@@ -68,7 +71,7 @@ module Flashpi
 
         content = String.new(encoding: Encoding::BINARY)
         while content.bytesize <= MAX_CERTIFICATE_BYTES
-          chunk = file.read([PIECE, MAX_CERTIFICATE_BYTES + 1 - content.bytesize].min)
+          chunk = read_piece(file, [PIECE, MAX_CERTIFICATE_BYTES + 1 - content.bytesize].min)
           break if chunk.nil?
 
           unless chunk.is_a?(String)
@@ -80,6 +83,14 @@ module Flashpi
           content << chunk.b
         end
         content
+      end
+
+      # One read of the file. A failure of the file's own read (a broken gzip, a reset socket) is then
+      # raised with this frame on top, which holds no bytes of the .p12.
+      #
+      # @api private
+      def self.read_piece(file, length)
+        file.read(length)
       end
 
       # Raises from a frame that holds only the error.

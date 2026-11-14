@@ -285,7 +285,8 @@ module Flashpi
         case value
         when true then "true"
         when false then "false"
-        when String, Symbol, Integer then value.to_s
+        when String, Symbol then query_text(value.to_s)
+        when Integer then value.to_s
         when Float
           raise ArgumentError, "A filter cannot be NaN or infinite" unless value.finite?
 
@@ -293,6 +294,14 @@ module Flashpi
         when Date then value.iso8601
         else raise TypeError, "Filter values must be Strings, numbers, booleans or Dates, not #{value.class}"
         end
+      end
+
+      # A filter as UTF-8 text, as the API reads the query.
+      def query_text(value)
+        text = Validate.utf8(value)
+        raise ArgumentError, "A filter must be valid UTF-8 text" if text.nil?
+
+        text
       end
 
       # The headers of an attempt, by lowercase name, from the lowest priority to the highest:

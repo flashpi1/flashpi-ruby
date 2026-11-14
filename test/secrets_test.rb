@@ -99,6 +99,21 @@ class SecretsTest < Minitest::Test
     assert_includes attempt.content, PASSWORD
   end
 
+  def test_keeps_the_p12_out_of_the_locals_when_the_files_own_read_fails
+    p12 = "P12-BYTES-" * 8000
+    gzip = StringIO.new
+    writer = Zlib::GzipWriter.new(gzip)
+    writer.write(p12)
+    writer.finish
+    truncated = gzip.string[0, gzip.string.bytesize - 6]
+    captured = locals_at_raise do
+      Flashpi::Internal::Multipart.certificate({ file: Zlib::GzipReader.new(StringIO.new(truncated)),
+                                                 password: PASSWORD })
+    end
+    refute_empty captured
+    captured.each { |locals| refute_includes locals, "P12-BYTES" }
+  end
+
   def test_messages_never_show_the_key
     api = fake_api(problem(401, "invalid_api_key"))
     error = assert_raises(Flashpi::AuthenticationError) { api.client.status.get }

@@ -125,8 +125,10 @@ module Flashpi
 
     module Path
       UNRESERVED: Regexp
+      BLANK: Regexp
 
       def self?.of: (String template, *untyped ids) -> String
+      def self?.segment: (untyped id, String shown) -> String
       def self?.encode: (String text) -> String
     end
 
@@ -156,6 +158,7 @@ module Flashpi
       def self.member: (Hash[untyped, untyped] upload, Symbol name) -> untyped
       def self.read: (untyped file) -> String
       def self.read_io: (untyped file) -> String
+      def self.read_piece: (untyped file, Integer length) -> untyped
       def self.refuse!: (singleton(Exception) error, String message) -> bot
 
       def initialize: (String password, String content, String filename) -> void
@@ -298,6 +301,7 @@ module Flashpi
       def build_target: (String path, Hash[untyped, untyped]? query) -> String
       def query_name: (untyped name) -> String
       def query_value: (untyped value) -> String
+      def query_text: (String value) -> String
       def build_headers: (RequestSpec spec, Call call) -> Hash[String, String]
       def read_response: (RawResponse raw, response_type response_type) -> (APIResponse[untyped] | APIError)
       def read_data: (RawResponse raw, response_type response_type) -> untyped

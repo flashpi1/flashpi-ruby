@@ -69,6 +69,15 @@ class ResourcesTest < Minitest::Test
     assert_operator big.pos, :<=, Flashpi::Internal::Multipart::MAX_CERTIFICATE_BYTES + 1
   end
 
+  def test_sends_the_password_and_the_file_name_as_utf8
+    form = Flashpi::Internal::Multipart.certificate({ file: P12, password: "contraseña".encode("ISO-8859-1"),
+                                                      filename: "firma ñ.p12".encode("ISO-8859-1") })
+    assert_includes form.content, "\r\n\r\ncontraseña\r\n".b
+    assert_includes form.content, "filename=\"firma ñ.p12\"".b
+    assert_raises(ArgumentError) { Flashpi::Internal::Multipart.certificate({ file: P12, password: "ab\xff" }) }
+    assert_raises(ArgumentError) { Flashpi::Internal::Multipart.certificate({ file: P12, password: "x", filename: "\xff" }) }
+  end
+
   def test_refuses_a_with_response_call_that_sent_no_request
     view = Flashpi::Resources::Status::WithResponse.new(Object.new.tap do |fake|
       fake.define_singleton_method(:get) do |**|

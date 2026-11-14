@@ -217,6 +217,16 @@ class ClientTest < Minitest::Test
     assert_empty api.sent
   end
 
+  def test_checks_path_ids_once_they_are_utf8
+    api = fake_api(json_response({}))
+    ["..".encode("UTF-16LE"), ".".encode("UTF-32BE"), "ab\xff", "\xffab", "\u00a0", "\u3000\t"].each do |id|
+      assert_raises(Flashpi::Error, id.inspect) { api.client.issuers.delete(id) }
+    end
+    assert_empty api.sent
+    api.client.documents.get("Peña".encode("ISO-8859-1"))
+    assert_equal "/v1/documents/Pe%C3%B1a", api.sent.first.target
+  end
+
   def test_encodes_path_ids
     api = fake_api(json_response({}))
     api.client.documents.get("a b/c?d#é~!*'()")
