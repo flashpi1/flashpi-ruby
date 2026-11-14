@@ -164,8 +164,14 @@ are listed so they can be confirmed or changed before 1.0.
   build job, with a read-only token and no secret, builds the tag with `gem build` on an exact
   Ruby (4.0.9, pinned by hand in `release.yml`) without Bundler, and checks it. The publish job,
   the only one with `id-token: write`, checks out nothing and runs no code of the repository or
-  of any gem: it downloads the gem and runs `gem push` with a short-lived key from
-  `rubygems/configure-rubygems-credentials`. There are no Sigstore attestations yet: RubyGems
+  of any gem: it downloads the gem, exchanges its OIDC token for a short-lived key with `curl` and
+  `jq` from the runner image, and runs `gem push`. The exchange names the owning RubyGems.org
+  account (`owner`, its numeric id, from the `RUBYGEMS_OWNER_ID` variable of the `rubygems`
+  environment): since 2026-10-30 rubygems.org refuses to create a new gem through trusted
+  publishing otherwise, and `rubygems/configure-rubygems-credentials` (v2.1.0, the latest) cannot
+  send it. A pending trusted publisher expires 12 hours after it is added, so the owner adds it
+  just before approving the publish job of 0.1.0 (CONTRIBUTING.md). There are no Sigstore
+  attestations yet: RubyGems
   4.0's `gem push` does not make them, and `rubygems/release-gem` makes them by running the
   `sigstore-cli` gem in the publish job. The gemspec requires MFA for pushes
   (`rubygems_mfa_required`; trusted publishing keys pass it) and allows pushes to rubygems.org

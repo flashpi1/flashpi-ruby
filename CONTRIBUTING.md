@@ -112,9 +112,9 @@ shadow it here only), then delete the old key.
 The release builds in two jobs. The build job checks out the tag, builds the gem with an exact
 Ruby (4.0.9), no Bundler and no gem, and checks it (`scripts/package_check.rb`), with a read-only
 token and no secret. The publish job, the only one allowed to get a RubyGems key, checks out
-nothing and runs no code of this repository or of any gem: it downloads that file, gets a
-short-lived key from `rubygems/configure-rubygems-credentials` and runs RubyGems' own
-`gem push`. It runs in the `rubygems` environment, which waits for a maintainer's approval in
+nothing and runs no code of this repository or of any gem: it downloads that file, exchanges its
+OIDC token for a short-lived key with `curl` and `jq` (naming the owning account, below) and runs
+RubyGems' own `gem push`. It runs in the `rubygems` environment, which waits for a maintainer's approval in
 GitHub before it publishes. The build job keeps the file for 30 days, as long as GitHub waits for
 that approval. If the publish job fails because it expired anyway, open the run and re-run the
 "Build the release" job alone (not "Re-run all jobs", which skips the release once it exists):
@@ -129,17 +129,25 @@ Connect. RubyGems accepts a **pending trusted publisher** for a gem that does no
 every version, 0.1.0 included, is published by the workflow. Before the first release PR is
 merged:
 
-1. An owner of the Flashpi RubyGems account (with multi-factor authentication) adds a pending
+1. This repository has the `rubygems` environment, with the maintainers as required reviewers,
+   limited to the `main` branch.
+2. Drop the not-on-RubyGems notice from both READMEs in its own pull request.
+3. Merge the release PR. release-please tags `v0.1.0`, and the build job builds and checks the
+   tag; the publish job then waits for the `rubygems` environment's approval. Do not approve it
+   yet.
+4. The owner of the Flashpi RubyGems.org account (with multi-factor authentication) adds a pending
    trusted publisher at https://rubygems.org/profile/oidc/pending_trusted_publishers: gem name
    `flashpi`, repository owner `flashpi1`, repository name `flashpi-ruby`, workflow filename
-   `release.yml`, environment `rubygems`. A pending publisher does not reserve the name, so add it
-   shortly before the release.
-2. This repository has the `rubygems` environment, with the maintainers as required reviewers,
-   limited to the `main` branch.
-3. Drop the not-on-RubyGems notice from both READMEs in its own pull request.
-4. Merge the release PR. release-please tags `v0.1.0` and the build job builds and checks the
-   tag; approve the `rubygems` environment, and the publish job pushes the gem. The first push
-   creates the gem, and the pending publisher becomes its trusted publisher.
+   `release.yml`, environment `rubygems`. A pending publisher expires **12 hours** after it is
+   added and does not reserve the name.
+5. The page then shows "owner: N" under it: the account's numeric id. Store it as the variable
+   `RUBYGEMS_OWNER_ID` of the `rubygems` environment (Settings, Environments, rubygems,
+   Environment variables). Since 2026-10-30 rubygems.org only lets trusted publishing create a new
+   gem when the token exchange names the account whose pending publisher it uses, and the publish
+   job sends this id; it must be the account that added the pending publisher.
+6. Within those 12 hours, approve the `rubygems` environment. The publish job pushes the gem; the
+   first push creates it, and the pending publisher becomes its trusted publisher. If the pending
+   publisher expired first, add it again and re-run the failed publish job.
 
 From then on, versions are published by the workflow only: do not create RubyGems API keys for
 the gem.
