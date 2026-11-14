@@ -51,6 +51,12 @@ module OpenAPI
     "string" => "String", "integer" => "Integer", "number" => "Integer | Float", "boolean" => "bool",
     "null" => "nil"
   }.freeze
+  METHODS = %w[get post put patch delete].freeze
+  # What a path item may hold besides its operations.
+  PATH_ITEM_KEYS = %w[summary description parameters].freeze
+  # What a parameter may hold: no `content`, `style`, `explode`, `allowReserved` or
+  # `allowEmptyValue`, whose serialization the SDK does not follow.
+  PARAMETER_KEYS = %w[name in required description schema deprecated example examples].freeze
   # A record key RBS writes without quotes, and a type alias name.
   KEY = /\A[A-Za-z_][A-Za-z0-9_]*\z/
   ALIAS = /\A[a-z_][a-z0-9_]*\z/
@@ -350,31 +356,37 @@ module OpenAPI
       define(Definition.new(alias_name(name), describe(value), nil, render(value, name, where, top: true)))
     end
 
-    # A record for the query of every operation that takes one, named after it.
+    # A record for the query of every operation that takes one, named after it, with the parameters
+    # of its path item and its own (the operation's win, by name and location).
     def define_queries
-      schema(@document.fetch("paths", {}), "paths").each do |path, item|
-        schema(item, path).each do |method, raw_operation|
-          next unless %w[get post put patch delete].include?(method)
+      schema(@document.fetch("paths", {}), "paths").each do |path, raw_item|
+        item = schema(raw_item, path)
+        unknown = (item.keys - METHODS - PATH_ITEM_KEYS).sort
+        raise GenerationError, "#{path}: unsupported path item keys #{unknown.join(", ")}" unless unknown.empty?
 
-          operation = schema(raw_operation, "#{method} #{path}")
+        shared = list(item.fetch("parameters", []), "#{path}.parameters")
+        (item.keys & METHODS).each do |method|
+          operation = schema(item[method], "#{method} #{path}")
           operation_id = text(operation["operationId"], "#{method} #{path}")
-          define_query(operation_id, method, path, operation)
+          define_query(operation_id, method, path, shared + list(operation.fetch("parameters", []), operation_id))
         end
       end
     end
 
-    def define_query(operation_id, method, path, operation)
+    def define_query(operation_id, method, path, raw_parameters)
       hint = "#{OpenAPI.upper_first(operation_id)}Query"
       definition = Definition.new(alias_name(hint), "", [], nil)
-      list(operation.fetch("parameters", []), operation_id).each do |raw|
-        parameter = parameter(schema(raw, operation_id), operation_id)
+      parameters = raw_parameters.map { |raw| parameter(schema(raw, operation_id), operation_id) }
+      parameters = parameters.reverse.uniq { |parameter| [parameter["name"], parameter["in"]] }.reverse
+      parameters.each do |parameter|
+        check_parameter(parameter, operation_id)
         next unless parameter["in"] == "query"
 
         key = text(parameter["name"], operation_id)
         where = "#{operation_id}.#{key}"
         raise GenerationError, "#{where}: not a valid record key" unless KEY.match?(key)
 
-        value = schema(parameter.fetch("schema", {}), where)
+        value = schema(parameter["schema"], where)
         type = render(value, "#{hint}#{OpenAPI.upper_first(key)}", where)
         doc = [describe(parameter), describe(value)].reject(&:empty?).join(" ")
         definition.fields << Field.new(key, type, parameter["required"] == true, doc)
@@ -383,6 +395,14 @@ module OpenAPI
 
       definition.doc = "The query of `#{operation_id}` (#{method.upcase} #{path})."
       define(definition)
+    end
+
+    # A parameter this generator can type: a schema, no serialization settings.
+    def check_parameter(parameter, operation_id)
+      where = "#{operation_id}.#{parameter["name"]}"
+      unknown = (parameter.keys - PARAMETER_KEYS).sort
+      raise GenerationError, "#{where}: unsupported parameter keys #{unknown.join(", ")}" unless unknown.empty?
+      raise GenerationError, "#{where}: a parameter without a schema" unless parameter["schema"].is_a?(Hash)
     end
 
     def parameter(value, where)

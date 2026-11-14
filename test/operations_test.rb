@@ -178,6 +178,7 @@ class OperationsTest < Minitest::Test
       type = declarations.fetch(klass.name.delete_prefix("Flashpi::Resources::")).fetch(method)
       assert_equal OPTIONS, type.type.optional_keywords.keys.map(&:to_s), operation.id
       assert_equal expected_answer(operation), type.type.return_type.to_s, operation.id
+      check_filters(operation, type)
       body = (type.type.required_positionals + type.type.optional_positionals).find do |param|
         %i[body upload].include?(param.name)
       end
@@ -225,6 +226,7 @@ class OperationsTest < Minitest::Test
     %w[net-http net-protocol openssl uri timeout].each { |library| loader.add(library:, version: nil) }
     loader.add(path: Pathname(File.join(ROOT, "sig")))
     environment = RBS::Environment.from_loader(loader).resolve_type_names
+    @environment = environment
     builder = RBS::DefinitionBuilder.new(env: environment)
     resources = Flashpi::Resources.constants.filter_map do |name|
       klass = Flashpi::Resources.const_get(name)
@@ -234,6 +236,18 @@ class OperationsTest < Minitest::Test
       [name.to_s, definition.methods.transform_values { |method| method.method_types.first }]
     end
     resources.to_h
+  end
+
+  # A list method takes, as `params`, an alias of the generated query of its operation.
+  def check_filters(operation, type)
+    params = type.type.optional_positionals.find { |param| param.name == :params }
+    query = operation.query - %w[cursor]
+    return assert_nil(params, operation.id) if operation.query.empty?
+
+    name = params.type.to_s.delete_suffix("?").delete_prefix("(").delete_suffix(")")
+    declaration = @environment.type_alias_decls.fetch(RBS::TypeName.parse(name)).decl
+    assert_equal "::Flashpi::Types::#{snake(operation.id)}_query", declaration.type.to_s, operation.id
+    refute_empty query, operation.id
   end
 
   def answer_of(operation)
