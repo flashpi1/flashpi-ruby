@@ -65,13 +65,12 @@ module Flashpi
     def each(&block)
       return enum_for(:each) unless block
 
-      page = self #: Page[untyped]
-      loop do
+      # A while loop, not Kernel#loop, which would swallow a StopIteration of the caller's block.
+      # @type var page: Page[untyped]?
+      page = self
+      while page
         page.data.each(&block)
-        following = page.next_page
-        break if following.nil?
-
-        page = following
+        page = page.next_page
       end
       self
     end

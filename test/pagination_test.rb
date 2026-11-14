@@ -85,6 +85,20 @@ class PaginationTest < Minitest::Test
     assert_equal 1, api.sent.size
   end
 
+  def test_sends_filters_as_utf8_text
+    api = fake_api(page([]))
+    api.client.documents.list({ accessKey: "Peña".encode("ISO-8859-1") })
+    assert_equal "/v1/documents?accessKey=Pe%C3%B1a", api.sent.first.target
+    assert_raises(ArgumentError) { api.client.documents.list({ accessKey: "ab\xff" }) }
+  end
+
+  def test_lets_a_stop_iteration_of_the_callers_block_through
+    api = fake_api(page([{ id: "a" }, { id: "b" }], "c2"))
+    other = [1].each
+    other.next
+    assert_raises(StopIteration) { api.client.events.list.each { other.next } }
+  end
+
   def test_shows_its_size_not_its_items
     api = fake_api(page([{ id: "a" }], "c2"))
     assert_equal '#<Flashpi::Page data=<1 items> has_more=true next_cursor="c2">', api.client.events.list.inspect
