@@ -73,6 +73,32 @@ class SecretsTest < Minitest::Test
     assert_empty api.sent
   end
 
+  def test_keeps_the_p12_and_its_password_out_of_the_locals_once_the_api_answered
+    upload = { file: P12, password: PASSWORD }
+    [[problem(422, "invalid_certificate_password")], [network_error, network_error, network_error],
+     [raw(200, "<html>")], [problem(500, "internal_error"), problem(422, "validation_failed")]].each do |replies|
+      api = fake_api(*replies, max_retries: 2)
+      captured = locals_at_raise { api.client.issuer_onboardings.create(upload) }
+      refute_empty captured
+      captured.each do |locals|
+        refute_includes locals, PASSWORD
+        refute_includes locals, "P12-BYTES"
+      end
+      refute_empty api.sent
+    end
+  end
+
+  def test_an_attempt_and_its_call_hide_the_body
+    api = fake_api(json_response({}))
+    api.client.issuer_onboardings.create({ file: P12, password: PASSWORD })
+    attempt = api.sent.first
+    shown = [attempt.inspect, PP.pp(attempt, +"")] + attempt.instance_variables.map do |name|
+      attempt.instance_variable_get(name).inspect
+    end
+    shown.each { |text| refute_includes text, PASSWORD }
+    assert_includes attempt.content, PASSWORD
+  end
+
   def test_messages_never_show_the_key
     api = fake_api(problem(401, "invalid_api_key"))
     error = assert_raises(Flashpi::AuthenticationError) { api.client.status.get }

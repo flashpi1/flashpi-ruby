@@ -98,11 +98,11 @@ module Flashpi
 
     class Attempt
       @headers: Secret[Hash[String, String]]
+      @content: Secret[String?]
 
       attr_reader http_method: http_method
       attr_reader url: String
       attr_reader target: String
-      attr_reader content: String?
       attr_reader timeout: Float
       attr_reader response_type: response_type
 
@@ -111,6 +111,7 @@ module Flashpi
         content: String?, timeout: Float, response_type: response_type
       ) -> void
       def headers: () -> Hash[String, String]
+      def content: () -> String?
       def verb: () -> String
     end
 
@@ -253,19 +254,21 @@ module Flashpi
       IN_PROGRESS: String
       OPTION_NAMES: Array[Symbol]
 
-      class Call < Struct[untyped]
-        attr_accessor options: Hash[Symbol, untyped]
-        attr_accessor max_retries: Integer
-        attr_accessor timeout: Float
-        attr_accessor url: String
-        attr_accessor target: String
-        attr_accessor idempotency_key: String?
-        attr_accessor content: String?
+      class Call
+        @content: Secret[String?]
 
-        def self.new: (
+        attr_reader options: Hash[Symbol, untyped]
+        attr_reader max_retries: Integer
+        attr_reader timeout: Float
+        attr_reader url: String
+        attr_reader target: String
+        attr_reader idempotency_key: String?
+
+        def initialize: (
           options: Hash[Symbol, untyped], max_retries: Integer, timeout: Float, url: String, target: String,
           idempotency_key: String?, content: String?
-        ) -> instance
+        ) -> void
+        def content: () -> String?
       end
 
       @base_path: String

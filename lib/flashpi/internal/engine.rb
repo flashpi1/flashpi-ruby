@@ -21,9 +21,32 @@ module Flashpi
 
       OPTION_NAMES = %i[idempotency_key timeout max_retries language correlation_id extra_headers].freeze
 
-      # What every attempt of one call shares, resolved before the first one is sent.
-      Call = Struct.new(:options, :max_retries, :timeout, :url, :target, :idempotency_key, :content,
-                        keyword_init: true)
+      # What every attempt of one call shares, resolved before the first one is sent. It is a local
+      # of the methods that raise the call's errors, and error trackers can record those locals: the
+      # body (possibly a .p12 and its password) is kept in a Secret, and `inspect` shows the URL only.
+      class Call
+        attr_reader :options, :max_retries, :timeout, :url, :target, :idempotency_key
+
+        def initialize(options:, max_retries:, timeout:, url:, target:, idempotency_key:, content:)
+          @options = options
+          @max_retries = max_retries
+          @timeout = timeout
+          @url = url
+          @target = target
+          @idempotency_key = idempotency_key
+          @content = Secret.new(content)
+          freeze
+        end
+
+        # @return [String, nil] the body every attempt sends
+        def content
+          @content.reveal
+        end
+
+        def inspect
+          "#<#{self.class.name} #{url}>"
+        end
+      end
       private_constant :Call
 
       # @return [ClientConfig]

@@ -86,7 +86,7 @@ module Flashpi
     #
     # @api private
     class Attempt
-      attr_reader :http_method, :url, :target, :content, :timeout, :response_type
+      attr_reader :http_method, :url, :target, :timeout, :response_type
 
       # @param http_method [Symbol]
       # @param url [String] the whole URL, for messages
@@ -100,10 +100,15 @@ module Flashpi
         @url = url
         @target = target
         @headers = Secret.new(headers.freeze)
-        @content = content
+        @content = Secret.new(content)
         @timeout = timeout
         @response_type = response_type
         freeze
+      end
+
+      # @return [String, nil] the body, which may be a .p12 and its password
+      def content
+        @content.reveal
       end
 
       # @return [Hash{String => String}] the headers, with the API key
