@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # By hand: gh workflow run ci.yml --ref <branch>. Such a run does not count for a pull
+  # request's required checks, which only take push and pull_request runs.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Third-party actions are pinned to full commit SHAs (the comment is the release).
+jobs:
+  verify:
+    name: Lint, typecheck and test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Ruby and the locked gems
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: '4.0'
+          bundler-cache: true
+
+      - name: Check the generated API types match the committed OpenAPI document
+        run: ruby scripts/openapi.rb check
+
+      - name: Check the README examples match the READMEs
+        run: ruby scripts/readme.rb check
+
+      - name: Lint
+        run: bundle exec rubocop --format github
+
+      - name: Typecheck (Steep, with the README examples)
+        run: bundle exec steep check
+
+      - name: Test with coverage
+        run: bundle exec rake test
+        env:
+          COVERAGE: '95'
+
+  # Without the lint group (RuboCop and Steep), so the tests load each Ruby's own json, uri and
+  # securerandom, as the gem's users do.
+  ruby:
+    name: Ruby ${{ matrix.ruby }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      BUNDLE_WITHOUT: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ['3.3', '3.4', '4.0']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - name: Check the tests use this Ruby's own json and uri
+        run: |
+          bundle exec ruby -rjson -ruri -e '
+            loaded = Gem.loaded_specs.slice("json", "uri").reject { |_, spec| spec.default_gem? }
+            abort "From the bundle, not from Ruby: #{loaded.keys.join(", ")}" unless loaded.empty?
+            puts "json #{JSON::VERSION}, uri #{URI::VERSION}"'
+      - run: bundle exec rake test
+
+  # The gem as RubyGems would get it, installed alone (no Bundler, no other gem) and used with the
+  # default gems of the oldest and the newest supported Ruby.
+  build:
+    name: Build and install (Ruby ${{ matrix.ruby }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ['3.3', '4.0']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler: none
+
+      - name: Build the gem
+        run: gem build flashpi.gemspec
+
+      - name: Check what RubyGems would get
+        run: ruby scripts/package_check.rb flashpi-*.gem
+
+      - name: Install the gem alone and use it
+        run: |
+          clean="${RUNNER_TEMP}/clean"
+          GEM_HOME="$clean" gem install --local --no-document flashpi-*.gem
+          cd "$RUNNER_TEMP"
+          GEM_HOME="$clean" GEM_PATH="$clean" ruby "${GITHUB_WORKSPACE}/scripts/installed_check.rb"

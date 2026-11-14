@@ -1,0 +1,114 @@
+# Types written by hand where the SDK adds something to the generated ones (types.rbs): shorter
+# names, the webhook bodies, the open error code unions, list filters, uploads, the XML of a
+# document and the per-call options.
+module Flashpi
+  module Types
+    # Languages the API writes its messages in. Error codes are the same in both.
+    type language = "en" | "es"
+
+    # A language as the SDK takes it: `"es"` or `:es`.
+    type request_language = language | :en | :es | String
+
+    # `test` (SRI pruebas, fp_test_ keys) or `live` (SRI production, fp_live_ keys).
+    type environment = document_environment
+
+    # Seconds, as the timeouts take them.
+    type seconds = Integer | Float
+
+    # Header names to values.
+    type headers = Hash[String | Symbol, String]
+
+    # The body of a webhook endpoint in thin mode: the event without `data`.
+    type thin_event = event_thin
+
+    # Every event type the API sends today. New types may appear: keep a default branch.
+    type event_type = document_event_type | certificate_event_type | account_event_type
+
+    # What a webhook endpoint receives, as `Flashpi::Webhooks.unwrap` returns it: an event, whose
+    # `data` is the document, the certificate or the account's email sending; the activation
+    # handshake (`webhook_endpoint.verification`), which must be answered with
+    # `{ challenge: event[:data][:challenge] }`; or, in thin mode, an event without `data`. Branch
+    # on `event[:type]`. It is one record with the members every event has, since Steep cannot
+    # narrow a union of records on `type`; the exact shapes are `document_event`,
+    # `certificate_event`, `account_event`, `webhook_endpoint_verification_event` and
+    # `thin_event`.
+    type webhook_event = {
+      id: String,
+      type: event_type | "webhook_endpoint.verification",
+      environment: environment,
+      createdAt: String,
+      ?data: untyped
+    }
+
+    # What a webhook endpoint in thin mode receives.
+    type thin_webhook_event = thin_event | webhook_endpoint_verification_event
+
+    # An error code of the API (`code` of the Problem Details). New codes can appear before this
+    # gem knows them, so any String is accepted.
+    type api_error_code = error_code | String
+
+    # A field error code (`errors[].code`, such as `required` or `invalid_check_digit`). The list
+    # is open: new codes can appear before this gem knows them, so any String is accepted.
+    type api_field_error_code = field_error_code | String
+
+    # The Problem Details body of an API error (RFC 9457), with the extension members some codes
+    # add (`documentId`, `limit`, `resetsAt`, `rideStatus`, `expectedTotal`, ...); others may
+    # appear.
+    type problem = Hash[Symbol, untyped]
+
+    # Filters of `documents.list`.
+    type document_list_params = documents_list_query
+
+    # Filters of `events.list`.
+    type event_list_params = events_list_query
+
+    # Filters of `webhook_endpoints.deliveries.list`.
+    type webhook_delivery_list_params = webhook_endpoints_deliveries_list_query
+
+    # Paging of `issuers.list`.
+    type issuer_list_params = issuers_list_query
+
+    # Paging of `issuers.establishments.list`.
+    type establishment_list_params = establishments_list_query
+
+    # Paging of `issuers.establishments.emission_points.list`.
+    type emission_point_list_params = emission_points_list_query
+
+    # Paging of `issuers.certificates.list`.
+    type certificate_list_params = certificates_list_query
+
+    # Paging of `webhook_endpoints.list`.
+    type webhook_endpoint_list_params = webhook_endpoints_list_query
+
+    # Something to read a .p12 from: its bytes, or an IO opened in binary mode.
+    interface _Reader
+      def read: (Integer length) -> String?
+    end
+
+    # A .p12 upload, for `issuers.certificates.upload` and `issuer_onboardings.create`.
+    type certificate_upload = {
+      # The .p12: its bytes (`File.binread("firma.p12")`) or an IO opened in binary mode
+      # (`File.open("firma.p12", "rb")`), at most 1 MiB.
+      file: String | _Reader,
+
+      # Its password.
+      password: String,
+
+      # The file name sent with it (default `certificate.p12`).
+      ?filename: String
+    }
+
+    # Which stage an XML comes from. Only `authorized` is the valid tax document.
+    type document_xml_kind = "authorized" | "signed" | "unsigned"
+
+    # The XML of a document (`documents.xml`).
+    type document_xml = {
+      # The XML text.
+      xml: String,
+
+      # `authorized` (the SRI's authorization, the valid tax document), `signed` (signed, not yet
+      # authorized) or `unsigned` (before signing); nil when the API did not say.
+      kind: document_xml_kind?
+    }
+  end
+end

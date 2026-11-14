@@ -1,0 +1,22 @@
+# What the README examples use without defining it: the values an earlier block made, and the
+# parts of the caller's own code (a retry queue, an order, an event handler).
+class Object
+  private
+
+  def flashpi: () -> Flashpi::Client
+  def invoice: () -> Flashpi::Types::document
+  def body: () -> Flashpi::Types::create_invoice
+  def order: () -> _Order
+  def document_id: () -> String
+  def save_for_retry: (Flashpi::Types::create_invoice body, String key) -> void
+  def handle_event: (Flashpi::Types::webhook_event event) -> void
+end
+
+interface _Order
+  def id: () -> Integer
+end
+
+# The controller of the Rails example.
+class FlashpiWebhooksController < ApplicationController
+  def create: () -> void
+end

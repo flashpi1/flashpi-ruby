@@ -28,7 +28,7 @@ Gem::Specification.new do |spec|
 
   # The library, its RBS signatures and the documents a user reads; tests and tooling stay in
   # the repository.
-  spec.files = Dir.glob(%w[lib/**/*.rb sig/**/*.rbs]) +
+  spec.files = Dir.glob(%w[lib/**/*.rb sig/**/*.rbs sig/manifest.yaml]) +
                %w[LICENSE README.md README.en.md CHANGELOG.md].select { |file| File.file?(File.join(__dir__, file)) }
   spec.require_paths = ["lib"]
 end
