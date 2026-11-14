@@ -3,6 +3,10 @@
 SDK oficial de [Flashpi](https://flashpi.com.ec), la API de facturación electrónica del SRI de
 Ecuador, para Ruby.
 
+> **Aún no está publicado en RubyGems.** La primera versión (0.1.0) está en preparación. Mientras
+> tanto puedes usar la API con HTTP simple: consulta la
+> [documentación](https://flashpi.com.ec/docs/).
+
 [English](https://github.com/flashpi1/flashpi-ruby/blob/main/README.en.md)
 
 - Las 45 operaciones de la API: los seis comprobantes, documentos (XML, RIDE en PDF, correo),
