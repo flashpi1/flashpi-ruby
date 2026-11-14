@@ -216,6 +216,21 @@ module Flashpi
       def limited: (Float? timeout, singleton(Exception) error) -> Float?
     end
 
+    module Proxy
+      LOOPBACK: Regexp
+
+      # The environment, or a Hash for the tests.
+      interface _Env
+        def []: (String name) -> String?
+        def key?: (String name) -> bool
+      end
+
+      def self?.from_env: (URI::Generic uri, ?_Env env) -> [String, Integer, String?, String?]?
+      def self?.bypassed?: (URI::Generic uri, String? no_proxy) -> bool
+      def self?.parse: (String name, String value) -> [String, Integer, String?, String?]
+      def self?.refuse!: (String name) -> bot
+    end
+
     class Transport
       MAX_IDLE: Integer
       CONNECTION_ERRORS: Array[singleton(Exception)]
@@ -225,6 +240,7 @@ module Flashpi
       @host: String
       @port: Integer
       @use_ssl: bool
+      @proxy: [String, Integer, String?, String?]?
       @clock: _Clock
       @idle: Array[Net::HTTP & DeadlineHTTP]
       @mutex: Thread::Mutex
@@ -237,6 +253,7 @@ module Flashpi
       private
 
       def exchange: (Net::HTTP & DeadlineHTTP http, Attempt attempt, Deadline deadline) -> RawResponse
+      def gzip_inflater: (Net::HTTPResponse response) -> Zlib::Inflate?
       def limit_timeouts: (Net::HTTP http, Deadline deadline) -> void
       def build_request: (Attempt attempt) -> Net::HTTPRequest
       def checkout: () -> (Net::HTTP & DeadlineHTTP)

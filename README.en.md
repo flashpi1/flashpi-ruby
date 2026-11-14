@@ -347,8 +347,9 @@ puts result.data[:status], result.status, result.request_id
 The timeout is one deadline per attempt, from sending it to reading the whole answer: connecting,
 the TLS handshake and every read and write count against it (only the DNS lookup can run past
 it). Requests go out through net/http with the proxy of the environment variables
-(`https_proxy`, `no_proxy`), and the SDK never follows redirects. In your tests, WebMock or VCR
-can answer in place of the API.
+(`https_proxy` or `HTTPS_PROXY`, an `http://` URL, and `no_proxy`), read when the client is
+created, and the SDK never follows redirects. In your tests, WebMock or VCR can answer in place of
+the API.
 
 ## Types
 

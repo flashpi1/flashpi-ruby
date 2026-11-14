@@ -64,8 +64,16 @@ module Flashpi
 
       def connect
         deadline = flashpi_deadline
-        @open_timeout = deadline.left!(Net::OpenTimeout) if deadline
-        super # steep:ignore
+        return super unless deadline # steep:ignore
+
+        @open_timeout = deadline.left!(Net::OpenTimeout)
+        return super unless proxy? && use_ssl? # steep:ignore
+
+        # Through a proxy, net/http sends the CONNECT of an https connection and reads its answer
+        # on a socket this module does not wrap, each read with a timeout of its own: the whole
+        # connect is limited to the time the attempt has left instead (net/http itself limits
+        # connecting this way before 0.6).
+        Timeout.timeout(deadline.left!(Net::OpenTimeout), Net::OpenTimeout) { super } # steep:ignore
       end
 
       def ssl_socket_connect(socket, timeout)
@@ -144,8 +152,11 @@ module Flashpi
         @io.closed?
       end
 
+      # Always true. net/http calls it only to check an idle connection that has something to
+      # read before reusing it: such a connection is closed instead (on TLS, the socket's own
+      # eof? could block, without a timeout, on a record that never ends).
       def eof?
-        @io.eof?
+        true
       end
 
       def inspect
@@ -172,21 +183,81 @@ module Flashpi
       end
     end
 
+    # The proxy of a client's connections, from the environment variables of its base URL's scheme,
+    # as curl and httpx read them: `https_proxy` (or `HTTPS_PROXY`) for https, `http_proxy` for
+    # http (`HTTP_PROXY` too, except in a CGI request, where a client can set it), and
+    # `no_proxy` (or `NO_PROXY`, `*` for every host). A loopback host never goes through a
+    # proxy. Read once, when the client is created, and only http:// proxies (net/http before
+    # 0.6 cannot reach a proxy over TLS). net/http's own lookup would read `http_proxy` for
+    # https too and look the host up in DNS on every connection.
+    #
+    # @api private
+    module Proxy
+      LOOPBACK = /\A(?:localhost|127(?:\.[0-9]{1,3}){3}|::1)\z/i
+
+      module_function
+
+      # @return [Array(String, Integer, String, String), nil] host, port, user and password
+      # @raise [Flashpi::Error] for a proxy that is not an http:// URL, without showing it
+      def from_env(uri, env = ENV)
+        name = "#{uri.scheme}_proxy"
+        value = env[name]
+        value = env[name.upcase] if value.nil? && !(name == "http_proxy" && env.key?("REQUEST_METHOD"))
+        return nil if value.nil? || value.strip.empty?
+
+        host = uri.hostname.to_s
+        return nil if LOOPBACK.match?(host) || bypassed?(uri, env["no_proxy"] || env["NO_PROXY"])
+
+        parse(name, value.strip)
+      end
+
+      # @api private
+      def bypassed?(uri, no_proxy)
+        return false if no_proxy.nil? || no_proxy.strip.empty?
+        return true if no_proxy.strip == "*"
+
+        host = uri.hostname.to_s
+        # The host as its own address: a CIDR of no_proxy matches an IP host, and is skipped for a
+        # name, without a DNS lookup.
+        !URI::Generic.use_proxy?(host, host, uri.port || 0, no_proxy)
+      end
+
+      # @api private
+      def parse(name, value)
+        proxy = URI.parse(value.include?("://") ? value : "http://#{value}")
+        refuse!(name) unless proxy.scheme == "http" && !proxy.hostname.to_s.empty?
+
+        user = (encoded = proxy.user) && URI.decode_uri_component(encoded)
+        password = (encoded = proxy.password) && URI.decode_uri_component(encoded)
+        [proxy.hostname.to_s, proxy.port || 80, user, password]
+      rescue URI::Error
+        refuse!(name)
+      end
+
+      # Raises from a frame that holds only the variable's name: its value may carry a password.
+      #
+      # @api private
+      def refuse!(name)
+        raise Error, "The #{name} environment variable is not an http:// proxy URL", cause: nil
+      end
+    end
+
     # Sends attempts with net/http and reads their whole answer within the attempt's deadline.
     #
     # Connections are kept alive and reused, one attempt at a time each, from a pool that is safe
     # to share between threads. After a fork the child drops the parent's connections without
-    # closing them (closing would end the parent's TLS sessions). Proxies come from the
-    # environment (`https_proxy`, `no_proxy`), as net/http reads them. Redirects are never
-    # followed: net/http does not follow them.
+    # closing them (closing would end the parent's TLS sessions). The proxy comes from the
+    # environment ({Proxy}). Redirects are never followed: net/http does not follow them.
     #
     # @api private
     class Transport
       MAX_IDLE = 10
 
+      # Not Timeout::Error itself: a caller's Timeout.timeout around a call must stop it, not be
+      # retried. net/http's own timeouts are the TIMEOUT_ERRORS.
       CONNECTION_ERRORS = [
         SocketError, SystemCallError, IOError, OpenSSL::SSL::SSLError, Net::HTTPBadResponse,
-        Net::HTTPHeaderSyntaxError, Net::ProtocolError, Zlib::Error, Timeout::Error
+        Net::HTTPHeaderSyntaxError, Net::ProtocolError, Zlib::Error
       ].freeze
       TIMEOUT_ERRORS = [Net::OpenTimeout, Net::ReadTimeout, Net::WriteTimeout, IO::TimeoutError].freeze
 
@@ -203,6 +274,7 @@ module Flashpi
         @host = uri.hostname.to_s
         @port = uri.port || (uri.scheme == "https" ? 443 : 80)
         @use_ssl = uri.scheme == "https"
+        @proxy = Proxy.from_env(uri)
         @clock = clock
         @idle = []
         @mutex = Mutex.new
@@ -252,6 +324,7 @@ module Flashpi
       private
 
       def exchange(http, attempt, deadline)
+        inflate = nil #: Zlib::Inflate?
         http.flashpi_deadline = deadline
         limit_timeouts(http, deadline)
         http.start unless http.started?
@@ -260,17 +333,28 @@ module Flashpi
         body = String.new(encoding: Encoding::BINARY)
         http.request(build_request(attempt), attempt.content) do |response|
           status = response.code.to_i
-          response.each_header { |name, value| headers[name] = value }
+          response.each_header { |name, value| headers[name] = value.dup.force_encoding(Encoding::UTF_8).scrub }
+          inflate = gzip_inflater(response)
           response.read_body do |chunk|
             deadline.left!(Net::ReadTimeout)
-            body << chunk
+            body << (inflate ? inflate.inflate(chunk) : chunk)
           end
         end
+        # A gzip stream that ends early raises Zlib::BufError here: no answer, retried.
+        body << inflate.finish if inflate&.total_in&.positive?
         # Also an answer whose end came late.
         deadline.left!(Net::ReadTimeout)
         RawResponse.new(status, headers, body)
       ensure
+        inflate&.close # steep:ignore FallbackAny
         http.flashpi_deadline = nil
+      end
+
+      # The SDK decompresses gzip answers itself: net/http would return what it had inflated so
+      # far of a gzip stream that ends early, as a complete answer.
+      def gzip_inflater(response)
+        encoding = response["content-encoding"].to_s.strip.downcase
+        Zlib::Inflate.new(32 + Zlib::MAX_WBITS) if %w[gzip x-gzip].include?(encoding)
       end
 
       def limit_timeouts(http, deadline)
@@ -284,7 +368,8 @@ module Flashpi
       # reason, which may quote the refused header (possibly the Authorization one).
       def build_request(attempt)
         request_class = REQUESTS.fetch(attempt.http_method) #: singleton(Net::HTTPRequest)
-        request = request_class.new(attempt.target, attempt.headers)
+        # Asking for gzip turns net/http's own decompression off (see #gzip_inflater).
+        request = request_class.new(attempt.target, { "accept-encoding" => "gzip" }.merge(attempt.headers))
         # net/http before 0.7 (Ruby 3.3 and 3.4) gives a POST without a body the Content-Type
         # application/x-www-form-urlencoded; it is sent with Content-Length: 0 and no Content-Type,
         # as the other SDKs send it.
@@ -324,10 +409,13 @@ module Flashpi
       end
 
       def connect
-        http = Net::HTTP.new(@host, @port)
+        proxy_host, proxy_port, proxy_user, proxy_password = @proxy
+        http = Net::HTTP.new(@host, @port, proxy_host, proxy_port, proxy_user, proxy_password)
         http.use_ssl = @use_ssl
         # The SDK retries by its own rules (idempotency keys, recoveries), never net/http.
         http.max_retries = 0
+        # An answer cut before its Content-Length is a failure (retried), not a shorter answer.
+        http.ignore_eof = false # steep:ignore
         http.extend(DeadlineHTTP)
         _ = http
       end

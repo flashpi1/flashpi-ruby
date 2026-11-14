@@ -8,7 +8,7 @@ target :lib do
   check "lib"
 
   library "net-http", "net-protocol", "openssl", "json", "securerandom", "uri", "time", "date", "zlib", "socket",
-          "timeout"
+          "timeout", "ipaddr"
 
   configure_code_diagnostics(D::Ruby.strict) do |hash|
     # The resource methods take the per-call options as `**options`; their signatures list each
@@ -25,7 +25,7 @@ target :examples do
   check "test/examples/readme"
 
   library "net-http", "net-protocol", "openssl", "json", "securerandom", "uri", "time", "date", "zlib", "socket",
-          "timeout", "logger", "stringio"
+          "timeout", "ipaddr", "logger", "stringio"
 
   configure_code_diagnostics(D::Ruby.strict)
 end

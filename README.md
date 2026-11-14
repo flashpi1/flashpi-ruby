@@ -352,8 +352,9 @@ puts result.data[:status], result.status, result.request_id
 El tiempo límite es uno solo por intento, desde que se envía hasta que se lee toda la respuesta:
 conectar, el saludo TLS y cada lectura y escritura cuentan contra él (solo la consulta DNS puede
 pasarse). Las peticiones salen por net/http con el proxy de las variables de entorno
-(`https_proxy`, `no_proxy`), y el SDK nunca sigue redirecciones. En tus pruebas, WebMock o VCR
-pueden responder en lugar de la API.
+(`https_proxy` o `HTTPS_PROXY`, una URL `http://`, y `no_proxy`), que se leen al crear el cliente,
+y el SDK nunca sigue redirecciones. En tus pruebas, WebMock o VCR pueden responder en lugar de la
+API.
 
 ## Tipos
 

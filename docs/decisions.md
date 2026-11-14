@@ -51,8 +51,8 @@ are listed so they can be confirmed or changed before 1.0.
 - **The client.** `Flashpi::Client.new(api_key:, base_url:, timeout:, max_retries:, language:,
   default_headers:)`, keywords only, each nil for its default. Timeouts are seconds (Integer or
   Float), as in Python. `language` takes a String or a Symbol (`:es`). There is no `http_client`
-  option: requests go through net/http, with the proxy of the environment (`https_proxy`,
-  `no_proxy`), as net/http reads it; in tests, WebMock or VCR answer in place of the API (the
+  option: requests go through net/http, with the proxy of the environment (see Connections); in
+  tests, WebMock or VCR answer in place of the API (the
   transport creates each `Net::HTTP` when it runs, so WebMock's replacement is the one used).
   `inspect` shows the environment and the URL only.
 - **Per-call options.** Keywords (`idempotency_key:`, `timeout:`, `max_retries:`, `language:`,
@@ -107,8 +107,21 @@ are listed so they can be confirmed or changed before 1.0.
   client stays usable. net/http's own retries are turned off: the SDK's rules are the only ones.
   Redirects are never followed. A POST without a body is sent with `Content-Length: 0` and no
   `Content-Type` (net/http before 0.7 would add `application/x-www-form-urlencoded`). Network
-  failures (DNS, refused or reset connections, TLS, a malformed answer, a broken gzip body) are
-  `APIConnectionError`s and are retried; timeouts are `APITimeoutError`s.
+  failures (DNS, refused or reset connections, TLS, a malformed answer, an answer cut before its
+  Content-Length, a gzip body that ends early) are `APIConnectionError`s and are retried;
+  timeouts are `APITimeoutError`s. The SDK asks for gzip and decompresses it itself (net/http
+  would return a gzip body cut short as a shorter answer); an `Accept-Encoding` of the caller is
+  kept. An idle connection with something to read is not reused. A caller's own
+  `Timeout.timeout` around a call is never caught. Response header values are UTF-8 text.
+- **Proxies.** Read once, when the client is created, as curl and httpx read them: `https_proxy`
+  (or `HTTPS_PROXY`) for an https base URL, `http_proxy` for http (`HTTP_PROXY` too, except in a
+  CGI request), `no_proxy` (or `NO_PROXY`, `*` for every host), and never for a loopback host.
+  Only `http://` proxies (a value without a scheme is read as one): net/http before 0.6 cannot
+  reach a proxy over TLS. A value that is not such a URL raises a `Flashpi::Error` that does not
+  show it (it may carry a password). net/http's own lookup would read `http_proxy` for https too
+  and look the host up in DNS on every connection. Through a proxy, the CONNECT of an https
+  connection is limited to the attempt's deadline with `Timeout.timeout`, since net/http reads its
+  answer on a socket the SDK does not wrap.
 - **Secrets.** The API key, the request headers, a .p12 and its password live in closures
   (`Flashpi::Internal::Secret`): `inspect`, `pp`, `to_s` and ActiveSupport's `as_json` (which
   reads instance variables) never show them, and `Marshal.dump` refuses them. Ruby's backtraces

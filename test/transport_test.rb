@@ -36,6 +36,154 @@ class TransportTest < Minitest::Test
     @elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
   end
 
+  PROXY_VARIABLES = %w[http_proxy HTTP_PROXY https_proxy HTTPS_PROXY no_proxy NO_PROXY REQUEST_METHOD].freeze
+
+  def with_env(values)
+    names = PROXY_VARIABLES | values.keys
+    saved = names.to_h { |name| [name, ENV.fetch(name, nil)] }
+    names.each { |name| values[name].nil? ? ENV.delete(name) : ENV.store(name, values[name]) }
+    yield
+  ensure
+    saved.each { |name, value| value.nil? ? ENV.delete(name) : ENV.store(name, value) }
+  end
+
+  def gzip(text)
+    output = StringIO.new
+    writer = Zlib::GzipWriter.new(output)
+    writer.write(text)
+    writer.close
+    output.string
+  end
+
+  def test_retries_an_answer_cut_before_its_content_length
+    calls = 0
+    server = serve do |_request, socket|
+      calls += 1
+      if calls == 1
+        socket.write("HTTP/1.1 200 OK\r\ncontent-length: 100\r\n\r\n%PDF-cut")
+        :close
+      else
+        LocalServer.respond(socket, 200, "%PDF-#{"x" * 95}")
+      end
+    end
+    assert_equal "%PDF-#{"x" * 95}", client(server).documents.pdf("doc")
+    assert_equal 2, server.received.size
+    cut = serve do |_request, socket|
+      socket.write("HTTP/1.1 200 OK\r\ncontent-length: 100\r\n\r\n{\"ok\"")
+      :close
+    end
+    assert_raises(Flashpi::APIConnectionError) { client(cut, max_retries: 0).status.get }
+  end
+
+  def test_refuses_a_gzip_answer_that_ends_early
+    whole = gzip('{"zipped":true}')
+    server = serve do |_request, socket|
+      LocalServer.respond(socket, 200, whole[0..-6], { "content-encoding" => "gzip" })
+    end
+    assert_raises(Flashpi::APIConnectionError) { client(server, max_retries: 0).status.get }
+    assert_equal "gzip", server.received.first.headers["accept-encoding"]
+  end
+
+  def test_keeps_an_accept_encoding_of_the_caller
+    server = serve { |_request, socket| json(socket) }
+    client(server).status.get(extra_headers: { "Accept-Encoding" => "identity" })
+    assert_equal "identity", server.received.first.headers["accept-encoding"]
+  end
+
+  def test_reads_response_headers_as_utf8_text
+    server = serve { |_request, socket| json(socket, { ok: true }, { "x-request-id" => "req_ñ" }) }
+    result = client(server).status.with_response.get
+    assert_equal "req_ñ", result.request_id
+    assert_equal Encoding::UTF_8, result.request_id.encoding
+  end
+
+  def test_goes_through_the_https_proxy_of_the_environment
+    proxy = serve do |_request, socket|
+      LocalServer.respond(socket, 502)
+      :close
+    end
+    %w[https_proxy HTTPS_PROXY].each do |name|
+      with_env(name => "http://user:p%40ss@127.0.0.1:#{proxy.port}") do
+        flashpi = Flashpi::Client.new(api_key: TEST_KEY, base_url: "https://api.flashpi.invalid", max_retries: 0)
+        assert_raises(Flashpi::APIConnectionError) { flashpi.status.get }
+      end
+      request = proxy.received.first
+      assert_equal %w[CONNECT api.flashpi.invalid:443], [request.http_method, request.target]
+      assert_equal "Basic #{["user:p@ss"].pack("m0")}", request.headers["proxy-authorization"]
+    end
+  end
+
+  def test_leaves_out_the_proxy_of_another_scheme_no_proxy_hosts_and_loopback
+    proxy = serve { |_request, socket| LocalServer.respond(socket, 502) }
+    [{ "http_proxy" => proxy.url }, { "https_proxy" => proxy.url, "no_proxy" => "example.com, .flashpi.invalid" },
+     { "https_proxy" => proxy.url, "NO_PROXY" => "*" }].each do |variables|
+      with_env(variables) do
+        flashpi = Flashpi::Client.new(api_key: TEST_KEY, base_url: "https://api.flashpi.invalid", max_retries: 0)
+        error = assert_raises(Flashpi::APIConnectionError) { flashpi.status.get }
+        refute_includes error.message, "502"
+      end
+    end
+    assert_empty proxy.received
+    server = serve { |_request, socket| json(socket) }
+    with_env("http_proxy" => proxy.url) { client(server).status.get }
+    assert_equal 1, server.received.size
+    assert_empty proxy.received
+  end
+
+  def test_refuses_a_proxy_url_it_cannot_use_without_showing_it
+    ["http://deploy:s3cret pass@proxy.corp:3128", "https://proxy.corp:3128", "socks5://proxy.corp:1080",
+     "http://"].each do |value|
+      with_env("https_proxy" => value) do
+        error = assert_raises(Flashpi::Error) { Flashpi::Client.new(api_key: TEST_KEY) }
+        assert_equal "The https_proxy environment variable is not an http:// proxy URL", error.message
+        assert_nil error.cause
+      end
+    end
+    with_env("https_proxy" => "127.0.0.1:9") { Flashpi::Client.new(api_key: TEST_KEY) }
+  end
+
+  def test_keeps_the_deadline_while_a_proxy_trickles_its_answer_to_connect
+    proxy = serve do |_request, socket|
+      "HTTP/1.1 200 Connection established\r\nx-slow: #{"a" * 40}\r\n\r\n".each_char do |char|
+        socket.write(char)
+        sleep 0.05
+      end
+      sleep 3
+    end
+    with_env("https_proxy" => proxy.url) do
+      flashpi = Flashpi::Client.new(api_key: TEST_KEY, base_url: "https://api.flashpi.invalid", timeout: 0.5,
+                                    max_retries: 0)
+      assert_raises(Flashpi::APITimeoutError) { elapsed { flashpi.status.get } }
+    end
+    assert_operator @elapsed, :<, 1.5
+  end
+
+  def test_does_not_reuse_an_idle_connection_that_has_something_to_read
+    server = serve do |_request, socket|
+      json(socket)
+      sleep 0.05
+      socket.write("HTTP/1.1 200 OK\r\n")
+      nil
+    end
+    flashpi = client(server, max_retries: 0)
+    flashpi.status.get
+    sleep 0.2
+    assert_equal({ ok: true }, flashpi.status.get)
+    assert_equal [1, 2], server.received.map(&:connection)
+  end
+
+  def test_lets_a_callers_own_timeout_stop_the_call
+    server = serve do |_request, socket|
+      sleep 0.6
+      json(socket)
+    end
+    [Timeout::Error, Class.new(Timeout::Error)].each do |error_class|
+      assert_raises(error_class) { Timeout.timeout(0.2, error_class) { client(server).invoices.create({}) } }
+    end
+    sleep 0.1
+    assert_equal 2, server.received.size
+  end
+
   def test_sends_the_request_and_reads_the_answer
     server = serve { |_request, socket| json(socket, { id: "a" }, { "x-request-id" => "req_1" }) }
     result = client(server).invoices.with_response.create({ total: "1.15" }, idempotency_key: "k-1")
