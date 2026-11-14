@@ -2,9 +2,9 @@
 
 source "https://rubygems.org"
 
-gemspec
-
-# Development only: the gem itself has no runtime dependencies.
+# The tools of this repository. The gem itself has no runtime dependencies, so the Gemfile does not
+# load its gemspec: the lockfile holds no version of flashpi for a release to update, and the
+# tests load lib/ themselves.
 group :development do
   gem "minitest", "~> 6.1"
   gem "rake", "~> 13.4"
