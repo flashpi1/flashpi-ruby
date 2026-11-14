@@ -79,16 +79,21 @@ class HeadersTest < Minitest::Test
     assert_raises(Flashpi::Error) { Flashpi::Client.new(api_key: TEST_KEY, default_headers: { "IDEMPOTENCY-KEY" => "k" }) }
   end
 
+  # Against a local server: net/http checks the headers once it is connected, and reaching the
+  # real API within the deadline depends on the network.
   def test_a_request_net_http_refuses_is_a_flashpi_error_without_its_reason
-    transport = Flashpi::Internal::Transport.new("https://api.flashpi.com.ec")
+    server = LocalServer.new { |_request, socket| LocalServer.respond(socket, 200) }
+    transport = Flashpi::Internal::Transport.new(server.url)
+    url = "#{server.url}/v1/status"
     headers = { "authorization" => "Bearer #{TEST_KEY}\r\nx" }
-    attempt = Flashpi::Internal::Attempt.new(http_method: :get, url: "https://api.flashpi.com.ec/v1/status",
-                                             target: "/v1/status", headers:, content: nil, timeout: 1.0,
-                                             response_type: :json)
+    attempt = Flashpi::Internal::Attempt.new(http_method: :get, url:, target: "/v1/status", headers:,
+                                             content: nil, timeout: 10.0, response_type: :json)
     error = assert_raises(Flashpi::Error) { transport.perform(attempt) }
-    assert_equal "GET https://api.flashpi.com.ec/v1/status was not sent: net/http refused it as invalid HTTP",
-                 error.message
+    assert_equal "GET #{url} was not sent: net/http refused it as invalid HTTP", error.message
     assert_nil error.cause
     refute_kind_of Flashpi::APIConnectionError, error
+    assert_empty server.received
+  ensure
+    server&.close
   end
 end
