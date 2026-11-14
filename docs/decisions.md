@@ -69,9 +69,11 @@ are listed so they can be confirmed or changed before 1.0.
   replaced, up to 512 levels deep. XML answers are UTF-8 text; PDFs are binary Strings.
 - **Queries and paths.** Filters whose value is nil are left out; booleans are sent as `true`
   and `false`, Strings, Symbols, Integers and finite Floats as text, Dates as ISO 8601; anything
-  else raises `TypeError`. The encoding is `URI.encode_www_form` (a space as `+`), as Python's
-  `urlencode`. Path ids are encoded as `encodeURIComponent` does; ids that are not Strings, blank
-  ids, `.` and `..` raise `Flashpi::Error`, as in Python.
+  else raises `TypeError`. Text is sent as UTF-8 (other encodings are converted, invalid text
+  raises `ArgumentError`). The encoding is `URI.encode_www_form` (a space as `+`), as Python's
+  `urlencode`. Path ids are converted to UTF-8 first, then encoded as `encodeURIComponent` does;
+  ids that are not Strings or not valid text, blank ids (Unicode spaces included, as Python's
+  `strip`), `.` and `..` raise `Flashpi::Error`, as in Python.
 - **Misused arguments.** What a type checker would refuse raises `TypeError` or `ArgumentError`
   (Python: `TypeError` or `ValueError`): an unknown option, a header name or value, a filter, a
   body, a webhook `tolerance` or `now`, a certificate upload that is not a Hash or a file that is
@@ -90,7 +92,10 @@ are listed so they can be confirmed or changed before 1.0.
 - **Pages.** `list` returns a `Flashpi::Page`, `Enumerable` over every item of every page,
   fetched as needed (`first(10)` fetches only what it needs); `data`, `has_more?`, `next_cursor`,
   `has_next_page?` and `next_page` move one page at a time. Walking a page twice fetches the
-  following pages again.
+  following pages again. A `StopIteration` raised by the caller's block goes through.
+- **A DELETE answered 404 on a retry.** As in Python and Node, it counts as done after any
+  earlier failed attempt (a 429 or a 503 with Problem Details too), not only after one whose
+  answer may have been lost, as the owner's rule reads; narrowing it is a question for every SDK.
 - **The deadline of an attempt.** Before each attempt, net/http's open, read and write timeouts
   are set to the attempt's timeout. Each `Net::HTTP` the SDK creates is extended so that
   connecting and the TLS handshake are limited to the time the attempt has left (its private
@@ -132,7 +137,9 @@ are listed so they can be confirmed or changed before 1.0.
 - **Webhooks.** `Flashpi::Webhooks.verify_signature` and `Flashpi::Webhooks.unwrap` (also
   `client.webhooks`, which returns that module), with `tolerance:` and `now:` (a `Time` or Unix
   seconds). Headers can be a Hash in any letter case, a Rack env (`HTTP_WEBHOOK_ID`) or anything
-  that yields name and value pairs (Rails' `request.headers`); values may be Arrays. The body
+  that yields name and value pairs (Rails' `request.headers`); values may be Arrays. Header names
+  and values and the secret are read as bytes, as Rack servers give them, so no encoding of
+  theirs can raise anything but a `WebhookVerificationError`. The body
   must be a String (its bytes are signed); anything else is `:invalid_payload`, and a secret that
   is not a String is `:invalid_secret`. Base64 is decoded as `atob`: padding optional, trailing
   bits ignored. `unwrap` returns the event with Symbol keys; a body that is not a JSON object is
@@ -145,9 +152,11 @@ are listed so they can be confirmed or changed before 1.0.
 - **Certificate uploads.** `{ file:, password:, filename: }` with Symbol or String keys. The file
   is a String of bytes or anything with `read`, read once in pieces up to one byte past 1 MiB (a
   bigger file is refused without being read whole) and not closed. A text-mode file is not
-  refused. The body is encoded once (the password field, then the file part, whose content type is
-  always `application/x-pkcs12`), so every retry sends the same bytes; the file name is escaped
-  as browsers do.
+  refused. The password and the file name are sent as UTF-8 (other encodings are converted,
+  invalid text raises `ArgumentError`). The body is encoded once (the password field, then the
+  file part, whose content type is always `application/x-pkcs12`), so every retry sends the same
+  bytes; the file name is escaped as browsers do. A failure of the file's own `read` is raised
+  from a method that holds none of the .p12's bytes.
 - **Types.** A generator of our own (`scripts/openapi.rb`, standard library only) writes
   `sig/flashpi/types.rbs`: one alias per schema and per list query in `Flashpi::Types`, in
   snake_case (`Document` is `document`, an inline enum `DocumentStatus` is `document_status`),
@@ -169,8 +178,11 @@ are listed so they can be confirmed or changed before 1.0.
   committed, as Bundler now recommends for gems too, with the platforms of CI and macOS and
   Bundler's checksums; the Gemfile lists the tools only, without the gemspec, because Bundler 4
   writes a path gem's version twice in the lockfile and release-please updates only the first.
+  RuboCop and Steep are in a `lint` group: they lock newer json and uri gems than some Rubies
+  ship.
 - **CI.** RuboCop, Steep, the generated types, the README examples and the tests with the
-  coverage gate on Ruby 4.0; the tests on Ruby 3.3, 3.4 and 4.0; and the gem built, checked file
+  coverage gate on Ruby 4.0; the tests on Ruby 3.3, 3.4 and 4.0 without the `lint` group, so
+  they load each Ruby's own json, uri and securerandom, as users do; and the gem built, checked file
   by file (`scripts/package_check.rb`) and installed alone, with no other gem, then used against
   a local server (`scripts/installed_check.rb`) on Ruby 3.3 and 4.0.
 - **Releases.** release-please's `ruby` type writes the version to `lib/flashpi/version.rb`. A
