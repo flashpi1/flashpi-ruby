@@ -170,17 +170,18 @@ module Flashpi
       String payload, headers headers, String secret, ?tolerance: Types::seconds?, ?now: (Time | Types::seconds)?
     ) -> Types::webhook_event
 
-    def self.parse: (String payload) -> untyped
-    def self.reject!: (webhook_verification_reason reason, String message) -> bot
-    def self.header: (untyped headers, String name) -> String?
-    def self.signing_key: (untyped secret) -> Internal::Secret[String]
-    def self.key_size: (String secret) -> Integer
-    def self.encoded_key: (String secret) -> String
-    def self.signed?: (Internal::Secret[String] key, String message, String signatures) -> bool
-    def self.decode_base64: (String value) -> String?
-    def self.payload_bytes: (untyped payload) -> String
-    def self.verify_options: (untyped tolerance, untyped now) -> [Float, Float]
-    def self.clock: (untyped now) -> Float
-    def self.shown: (Float seconds) -> String
+    private def self.parse: (String payload) -> untyped
+    private def self.reject!: (webhook_verification_reason reason, String message) -> bot
+    private def self.header: (untyped headers, String name) -> String?
+    private def self.signing_key: (untyped secret) -> Internal::Secret[String]
+    private def self.key_size: (String secret) -> Integer
+    private def self.encoded_key: (String secret) -> String
+    private def self.signed?: (Internal::Secret[String] key, String message, String signatures) -> bool
+    private def self.v1_signatures: (String signatures) -> Array[String]
+    private def self.decode_base64: (String value) -> String?
+    private def self.payload_bytes: (untyped payload) -> String
+    private def self.verify_options: (untyped tolerance, untyped now) -> [Float, Float]
+    private def self.clock: (untyped now) -> Float
+    private def self.shown: (Float seconds) -> String
   end
 end

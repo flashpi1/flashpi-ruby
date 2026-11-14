@@ -97,7 +97,9 @@ module Flashpi
       end
 
       # A header without letter case, or in a Rack env's form (`HTTP_WEBHOOK_ID`). Repeated
-      # headers: signature lists are joined, otherwise the first. An empty value is missing.
+      # headers: signature lists are joined, otherwise the first. An empty value is missing. Names
+      # and values are read as bytes (as Rack servers give them), so no encoding of theirs can
+      # make the checks below raise anything but a WebhookVerificationError.
       def header(headers, name)
         unless headers.respond_to?(:each)
           raise TypeError, "headers must be a Hash (or Rack env, or Rails request.headers), not #{headers.class}"
@@ -106,10 +108,13 @@ module Flashpi
         env_name = "HTTP_#{name.upcase.tr("-", "_")}"
         values = [] #: Array[String]
         headers.each do |key, value|
-          next unless (key.is_a?(String) || key.is_a?(Symbol)) && (key.to_s.casecmp?(name) || key.to_s == env_name)
+          next unless key.is_a?(String) || key.is_a?(Symbol)
 
-          values << value if value.is_a?(String)
-          values.concat(value.grep(String)) if value.is_a?(Array)
+          field = key.to_s.b
+          next unless field.casecmp?(name) || field == env_name
+
+          values << value.b if value.is_a?(String)
+          values.concat(value.grep(String).map(&:b)) if value.is_a?(Array)
         end
         found = name == "webhook-signature" ? values.join(" ") : values.first
         found.nil? || found.empty? ? nil : found
@@ -117,7 +122,7 @@ module Flashpi
 
       # The decoded key of a `whsec_` secret, in a {Internal::Secret}.
       def signing_key(secret)
-        unless secret.is_a?(String) && !secret.strip.empty?
+        unless secret.is_a?(String) && !secret.b.strip.empty?
           reject!(:invalid_secret,
                   "The webhook secret is empty: copy it from the console or webhook_endpoints.get_secret")
         end
@@ -139,21 +144,28 @@ module Flashpi
         key ? key.bytesize : 0
       end
 
+      # The base64 after the prefix, read as bytes.
       def encoded_key(secret)
-        secret.strip.delete_prefix(SECRET_PREFIX)
+        secret.b.strip.delete_prefix(SECRET_PREFIX)
       end
 
-      # Whether a v1 signature of the header signs `message`. It returns instead of raising, so the
-      # expected signature never stays in the frame of an error.
+      # Whether a v1 signature of the header signs `message`. The signatures are read before the
+      # expected one is computed, and nothing after that can raise, so the expected signature
+      # never stays in the frame of an error.
       def signed?(key, message, signatures)
+        candidates = v1_signatures(signatures)
         expected = OpenSSL::HMAC.digest("SHA256", key.reveal, message)
-        signatures.split(/ /).any? do |entry|
+        candidates.any? { |signature| OpenSSL.fixed_length_secure_compare(signature, expected) }
+      end
+
+      # The decoded v1 signatures of a `webhook-signature` header that have the right size.
+      def v1_signatures(signatures)
+        signatures.b.split(/ /).filter_map do |entry|
           version, comma, encoded = entry.partition(",")
-          next false if comma.empty? || version != "v1"
+          next if comma.empty? || version != "v1"
 
           signature = decode_base64(encoded)
-          !signature.nil? && signature.bytesize == SIGNATURE_BYTES &&
-            OpenSSL.fixed_length_secure_compare(signature, expected)
+          signature if signature && signature.bytesize == SIGNATURE_BYTES
         end
       end
 

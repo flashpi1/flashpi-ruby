@@ -182,6 +182,40 @@ class WebhooksTest < Minitest::Test
     assert_raises(TypeError) { verify(FLASHPI.body, "webhook-id: x") }
   end
 
+  def test_ends_in_a_verification_error_whatever_the_encoding_of_the_headers_or_the_secret
+    utf16 = ->(text) { text.encode("UTF-16LE") }
+    cases = [
+      [headers_of(FLASHPI).merge("webhook-timestamp" => "1792152000\xff"), FLASHPI.secret, :invalid_timestamp],
+      [headers_of(FLASHPI, "v1,\xff"), FLASHPI.secret, :no_matching_signature],
+      [headers_of(FLASHPI, "#{FLASHPI.signature} \xff"), FLASHPI.secret, :verified],
+      [headers_of(FLASHPI).merge("x-\xff" => "1"), FLASHPI.secret, :verified],
+      [headers_of(FLASHPI).merge("webhook-timestamp" => utf16.call(FLASHPI.timestamp)), FLASHPI.secret,
+       :invalid_timestamp],
+      [headers_of(FLASHPI, utf16.call(FLASHPI.signature)), FLASHPI.secret, :no_matching_signature],
+      [headers_of(FLASHPI).merge("webhook-signature" => ["v1,\xff".b, "v1,é", FLASHPI.signature]), FLASHPI.secret,
+       :verified],
+      [headers_of(FLASHPI), "#{FLASHPI.secret}\xff", :invalid_secret],
+      [headers_of(FLASHPI), utf16.call(FLASHPI.secret), :invalid_secret]
+    ]
+    key = FLASHPI.secret.delete_prefix("whsec_").unpack1("m")
+    cases.each do |headers, secret, expected|
+      assert_equal(expected, reason { verify(FLASHPI.body, headers, secret) }, headers.inspect)
+      locals_at_raise { verify(FLASHPI.body, headers, secret) }.each do |locals|
+        refute_includes locals, FLASHPI.secret.delete_prefix("whsec_")
+        refute_includes locals, key.inspect[1..-2]
+      end
+    end
+  end
+
+  def test_signs_a_non_ascii_id_and_body_in_utf8_or_binary
+    vector = Vector.new(id: "msg_ñandú", timestamp: FLASHPI.timestamp)
+    body = '{"name":"Panadería Ñandú €"}'
+    signature = sign(FLASHPI.secret, vector, body)
+    headers = { "webhook-id" => vector.id, "webhook-timestamp" => vector.timestamp, "webhook-signature" => signature }
+    verify(body, headers)
+    verify(body.b, headers.transform_values(&:b))
+  end
+
   def test_unwrap_returns_the_verified_event_with_symbol_keys
     event = Flashpi::Webhooks.unwrap(FLASHPI.body, headers_of(FLASHPI), FLASHPI.secret, now: at(FLASHPI))
     assert_equal JSON.parse(FLASHPI.body, symbolize_names: true), event
