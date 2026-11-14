@@ -24,10 +24,21 @@ module Flashpi
     # Every event type the API sends today. New types may appear: keep a default branch.
     type event_type = document_event_type | certificate_event_type | account_event_type
 
-    # What a webhook endpoint in full mode receives: an event, or the activation handshake
-    # (`webhook_endpoint.verification`), which must be answered with
-    # `{ challenge: event[:data][:challenge] }`. Branch on `event[:type]`.
-    type webhook_event = event | webhook_endpoint_verification_event
+    # What a webhook endpoint receives, as `Flashpi::Webhooks.unwrap` returns it: an event, whose
+    # `data` is the document, the certificate or the account's email sending; the activation
+    # handshake (`webhook_endpoint.verification`), which must be answered with
+    # `{ challenge: event[:data][:challenge] }`; or, in thin mode, an event without `data`. Branch
+    # on `event[:type]`. It is one record with the members every event has, since Steep cannot
+    # narrow a union of records on `type`; the exact shapes are `document_event`,
+    # `certificate_event`, `account_event`, `webhook_endpoint_verification_event` and
+    # `thin_event`.
+    type webhook_event = {
+      id: String,
+      type: event_type | "webhook_endpoint.verification",
+      environment: environment,
+      createdAt: String,
+      ?data: untyped
+    }
 
     # What a webhook endpoint in thin mode receives.
     type thin_webhook_event = thin_event | webhook_endpoint_verification_event

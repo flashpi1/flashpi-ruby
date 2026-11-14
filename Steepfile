@@ -16,3 +16,16 @@ target :lib do
     hash[D::Ruby::DifferentMethodParameterKind] = nil
   end
 end
+
+# The README examples (test/examples/readme, from `ruby scripts/readme.rb generate`): the code a
+# user of the gem writes, checked against the gem's signatures, with the request bodies against
+# the API's types. test/examples/sig declares what they take from earlier blocks and frameworks.
+target :examples do
+  signature "sig", "test/examples/sig"
+  check "test/examples/readme"
+
+  library "net-http", "net-protocol", "openssl", "json", "securerandom", "uri", "time", "date", "zlib", "socket",
+          "timeout", "logger", "stringio"
+
+  configure_code_diagnostics(D::Ruby.strict)
+end

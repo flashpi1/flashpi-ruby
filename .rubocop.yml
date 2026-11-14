@@ -54,3 +54,11 @@ Layout/LeadingCommentSpace:
 # Test names quote HTTP statuses (test_retries_a_409_...).
 Naming/VariableNumber:
   CheckMethodNames: false
+
+# The tests and the README examples (code as a user writes it, generated from the READMEs).
+Style/Documentation:
+  Exclude:
+    - test/**/*
+Lint/UselessAssignment:
+  Exclude:
+    - test/examples/**/*

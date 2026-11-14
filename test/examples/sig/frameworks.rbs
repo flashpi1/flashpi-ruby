@@ -1,0 +1,52 @@
+# The few methods of Rails and Sinatra the README examples call, with their real signatures, so
+# neither framework becomes a dependency of the checks.
+class ApplicationController
+  def self.skip_forgery_protection: () -> void
+
+  def request: () -> ActionDispatch::Request
+  def render: (json: untyped) -> void
+  def head: (Symbol status) -> void
+end
+
+module ActionDispatch
+  class Request
+    def raw_post: () -> String
+    def headers: () -> ActionDispatch::Http::Headers
+  end
+
+  module Http
+    class Headers
+      include Enumerable[[String, untyped]]
+
+      def each: () { ([String, untyped]) -> void } -> self
+    end
+  end
+end
+
+module Rails
+  def self.logger: () -> Logger
+end
+
+module Sinatra
+  class Request
+    def body: () -> _Input
+    def env: () -> Hash[String, untyped]
+  end
+
+  # Rack's input stream.
+  interface _Input
+    def read: () -> String
+  end
+
+  class Base
+    def request: () -> Request
+    def content_type: (Symbol type) -> void
+  end
+end
+
+class Object
+  private
+
+  # Sinatra's top-level DSL.
+  def post: (String path) { () [self: Sinatra::Base] -> untyped } -> void
+end
