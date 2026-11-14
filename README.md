@@ -168,9 +168,10 @@ ejemplo `documentId`, `limit`, `resetsAt` o `rideStatus`. Para recibir los mensa
 
 ## Reintentos e idempotencia
 
-El SDK reintenta hasta 2 veces, con espera creciente, los errores de red, los tiempos agotados,
-las respuestas 408, 429 (si piden esperar 60 s o menos) y 5xx. Cada POST lleva un
-`Idempotency-Key` que se repite en sus reintentos, así que la API nunca emite dos veces:
+El SDK reintenta hasta 2 veces, con espera creciente, los errores de red, los tiempos agotados y
+las respuestas 408, 429 y 5xx (si piden esperar 60 s o menos; no 501 ni
+`demo_issuer_unavailable`). Cada POST lleva un `Idempotency-Key` que se repite en sus reintentos,
+así que la API nunca emite dos veces:
 
 - Si un reintento descubre que el primer intento sí creó el documento, el SDK devuelve ese
   documento.
@@ -358,7 +359,8 @@ pueden responder en lugar de la API.
 
 El gem trae sus firmas RBS en `sig/`. Con [Steep](https://github.com/soutaro/steep),
 `rbs collection install` las encuentra en tu `Gemfile.lock`, y Steep revisa los nombres de los
-campos, sus valores posibles y las opciones de cada llamada:
+campos, sus valores posibles y las opciones de cada llamada. Las firmas necesitan rbs 3.5 o
+superior (Steep 1.7 o superior); Ruby 3.3 trae rbs 3.4.
 
 ```ruby
 # @type var body: Flashpi::Types::create_invoice

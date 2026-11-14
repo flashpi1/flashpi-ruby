@@ -167,9 +167,9 @@ They all extend `Flashpi::Error`. Some errors carry extra data in `error.problem
 
 ## Retries and idempotency
 
-The SDK retries network errors, timeouts, and 408, 429 (when asked to wait 60 s or less) and
-5xx answers up to 2 times, with growing waits. Every POST carries an `Idempotency-Key` that its
-retries repeat, so the API never issues twice:
+The SDK retries network errors, timeouts, and 408, 429 and 5xx answers (when they ask to wait
+60 s or less; not 501 nor `demo_issuer_unavailable`) up to 2 times, with growing waits. Every POST
+carries an `Idempotency-Key` that its retries repeat, so the API never issues twice:
 
 - When a retry finds that the first attempt did create the document, the SDK returns that
   document.
@@ -354,7 +354,8 @@ can answer in place of the API.
 
 The gem ships its RBS signatures in `sig/`. With [Steep](https://github.com/soutaro/steep),
 `rbs collection install` finds them through your `Gemfile.lock`, and Steep checks the names of
-the fields, their possible values and the options of every call:
+the fields, their possible values and the options of every call. The signatures need rbs 3.5 or
+later (Steep 1.7 or later); Ruby 3.3 comes with rbs 3.4.
 
 ```ruby
 # @type var body: Flashpi::Types::create_invoice
