@@ -71,6 +71,11 @@ Requests and answers are hashes with the API's own keys, in camelCase, as symbol
 no decimals are lost. Write the body in braces, `create({ ... })`: without them, Ruby would take
 it as the options of the call.
 
+The last payment may leave out `amount`: Flashpi gives it what the other payments leave of the
+total, as in `payments: [{ method: "credit_card", amount: "10.00" }, { method: "cash" }]`. With
+several payments, none can be zero (`zero_payment`). See
+[Totals](https://flashpi.com.ec/docs/en/documents/#totals).
+
 With the **demo issuer** you can issue test documents without uploading a certificate: its id is
 on the console's Overview (up to 50 documents a day). See
 [Sandbox and demo issuer](https://flashpi.com.ec/docs/en/sandbox/).
