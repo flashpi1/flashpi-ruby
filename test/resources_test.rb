@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
+require "rbs"
+require "rbs/test"
 
 class ResourcesTest < Minitest::Test
   include Support
@@ -26,6 +28,21 @@ class ResourcesTest < Minitest::Test
     api = fake_api(json_response(document_body))
     api.client.documents.send_email(ID)
     assert_equal "{}", api.sent.first.content
+  end
+
+  # The API gives a last payment that leaves out its amount the rest of the total: the types allow
+  # it, and the body goes out without the key.
+  def test_sends_a_last_payment_without_its_amount
+    api = fake_api(json_response(document_body), json_response(document_body))
+    payments = [{ method: "credit_card", amount: "10.00" }, { method: "cash" }]
+    api.client.invoices.create({ issuerId: ID, payments: })
+    api.client.withholdings.create({ issuerId: ID, supportingDocuments: [{ payments: [{ method: "cash" }] }] })
+    assert_equal %({"issuerId":"#{ID}","payments":[{"method":"credit_card","amount":"10.00"},{"method":"cash"}]}),
+                 api.sent[0].content
+    assert_equal %({"issuerId":"#{ID}","supportingDocuments":[{"payments":[{"method":"cash"}]}]}), api.sent[1].content
+    assert typed?(payments, "::Array[::Flashpi::Types::document_payment]")
+    assert typed?([{ method: "cash" }], "::Array[::Flashpi::Types::withholding_payment]")
+    refute typed?([{ amount: "10.00" }], "::Array[::Flashpi::Types::document_payment]")
   end
 
   def test_sends_the_same_multipart_body_on_every_attempt
@@ -101,5 +118,19 @@ class ResourcesTest < Minitest::Test
     assert_equal({ a: 1 }, result.data)
     assert_equal({ b: 2 }, api.client.status.get)
     assert_nil Thread.current[Flashpi::Internal::ResponseView::SLOT]
+  end
+
+  private
+
+  # Whether `value` is of the RBS `type`, as the gem's signatures in sig/ declare it.
+  def typed?(value, type)
+    @builder ||= begin
+      loader = RBS::EnvironmentLoader.new
+      %w[net-http net-protocol openssl uri timeout].each { |library| loader.add(library:, version: nil) }
+      loader.add(path: Pathname(File.expand_path("../sig", __dir__)))
+      RBS::DefinitionBuilder.new(env: RBS::Environment.from_loader(loader).resolve_type_names)
+    end
+    RBS::Test::TypeCheck.new(self_class: Object, builder: @builder, sample_size: 100, unchecked_classes: [])
+                        .value(value, RBS::Parser.parse_type(type))
   end
 end
