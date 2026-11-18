@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/flashpi1/flashpi-ruby/compare/v0.1.0...v0.2.0) (2026-11-18)
+
+
+### Features
+
+* **types:** let the last payment leave out its amount ([2eb013a](https://github.com/flashpi1/flashpi-ruby/commit/2eb013a5d74253ccf249424d087d9551f1ef9881))
+
 ## 0.1.0 (2026-11-14)
 
 
