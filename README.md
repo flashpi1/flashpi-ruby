@@ -71,6 +71,11 @@ Las peticiones y las respuestas son hashes con las claves de la API en camelCase
 para no perder decimales. Escribe el cuerpo entre llaves, `create({ ... })`: sin ellas, Ruby lo
 tomaría como opciones de la llamada.
 
+El último pago puede ir sin `amount`: Flashpi le pone lo que los demás pagos dejan del total, como
+en `payments: [{ method: "credit_card", amount: "10.00" }, { method: "cash" }]`. Con varios
+pagos, ninguno puede ser cero (`zero_payment`). Más en
+[Totales](https://flashpi.com.ec/docs/documents/#totales).
+
 Con el **emisor demo** puedes emitir en pruebas sin subir un certificado: su id está en el
 Resumen de la consola (hasta 50 comprobantes al día). Más en
 [Sandbox y emisor demo](https://flashpi.com.ec/docs/sandbox/).

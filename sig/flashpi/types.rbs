@@ -880,15 +880,18 @@ module Flashpi
     # `foreign_id` (issued by the tax authority of another country).
     type document_party_id_type = "ruc" | "cedula" | "passport" | "final_consumer" | "foreign_id"
 
-    # A payment. The payments must add up to the document total.
+    # A payment. The payments must add up to the document total; the last one may leave out `amount`
+    # to take the rest of the total.
     type document_payment = {
       # Payment method: `cash` (without the financial system), `debt_offset`, `debit_card`,
       # `electronic_money`, `prepaid_card`, `credit_card`, `other_financial_system` (bank transfers,
       # checks and other payments through the financial system) or `securities_endorsement`.
       method: document_payment_method,
 
-      # Amount paid with this method.
-      amount: String,
+      # Amount paid with this method. Only the last payment may leave it out: Flashpi gives it what
+      # the other payments leave of the total (the whole total when it is the only one). With
+      # several payments none can be zero (`zero_payment`), the computed one included.
+      ?amount: String,
 
       # Payment term in `termUnit` units. Required on purchase settlements.
       ?term: String,
@@ -1314,6 +1317,7 @@ module Flashpi
       | "too_many_additional_fields"
       | "reserved_name"
       | "amount_mismatch"
+      | "zero_payment"
       | "future_date"
       | "date_too_early"
       | "date_too_late"
@@ -1745,7 +1749,8 @@ module Flashpi
     # No options yet: send an empty object or no body.
     type send_document_email = {}
 
-    # Public status of Flashpi. Placeholder until the status monitors exist.
+    # Public status of the Flashpi API. Components and SRI notices are on the status page,
+    # https://flashpi.com.ec/status.
     type status = {
       # Overall status of Flashpi.
       status: status_status
@@ -2475,8 +2480,9 @@ module Flashpi
       # Payment method (same values as `DocumentPayment.method`).
       method: withholding_payment_method,
 
-      # Amount.
-      amount: String
+      # Amount. Only the last payment may leave it out: it takes what the other payments leave of
+      # the supporting document `total`. With several payments none can be zero (`zero_payment`).
+      ?amount: String
     }
 
     # Payment method (same values as `DocumentPayment.method`).
