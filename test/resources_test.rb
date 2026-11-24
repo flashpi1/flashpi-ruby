@@ -43,6 +43,19 @@ class ResourcesTest < Minitest::Test
     refute typed?([{ amount: "10.00" }], "::Array[::Flashpi::Types::document_payment]")
   end
 
+  # Every certificate carries `warnings`, empty when there are none: a test certificate that is not
+  # for the issuer's RUC is accepted with `ruc_mismatch`.
+  def test_reads_the_warnings_of_a_certificate
+    warning = { code: "ruc_mismatch", message: "This certificate is not for the issuer's RUC" }
+    api = fake_api(json_response(certificate_body([warning])), page([certificate_body([])]))
+    certificate = api.client.issuers.certificates.get(ID, OTHER_ID)
+    assert_equal [warning], certificate[:warnings]
+    assert_empty api.client.issuers.certificates.list(ID).first[:warnings]
+    assert typed?(certificate, "::Flashpi::Types::certificate")
+    refute typed?(certificate.except(:warnings), "::Flashpi::Types::certificate")
+    refute typed?([{ code: "expired", message: "x" }], "::Array[::Flashpi::Types::certificate_warning]")
+  end
+
   def test_sends_the_same_multipart_body_on_every_attempt
     api = fake_api(network_error, json_response({ id: "onb" }))
     file = StringIO.new(P12)
@@ -116,5 +129,15 @@ class ResourcesTest < Minitest::Test
     assert_equal({ a: 1 }, result.data)
     assert_equal({ b: 2 }, api.client.status.get)
     assert_nil Thread.current[Flashpi::Internal::ResponseView::SLOT]
+  end
+
+  private
+
+  # An accepted certificate as the API returns it.
+  def certificate_body(warnings)
+    { id: OTHER_ID, issuerId: ID, environment: "test", allModes: false, status: "accepted", usable: true,
+      subject: "CN=PRUEBA", issuedBy: "CN=AC PRUEBA", serialNumber: "01", validFrom: "2026-01-01T00:00:00.000Z",
+      validUntil: "2028-01-01T00:00:00.000Z", sha256Fingerprint: "ab" * 32, ruc: "1790012345001", revocation: nil,
+      rejection: nil, warnings:, createdAt: "2026-11-24T10:00:00.000Z", updatedAt: "2026-11-24T10:00:00.000Z" }
   end
 end
