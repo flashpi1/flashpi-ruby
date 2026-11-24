@@ -100,6 +100,26 @@ class RetriesTest < Minitest::Test
     assert_equal 1, api.sent.size
   end
 
+  # Updating or verifying a webhook endpoint starts a handshake, at most 10 an hour: the 429 asks to
+  # wait the rest of the hour, longer than the SDK waits.
+  def test_does_not_wait_for_the_hourly_limit_of_webhook_verifications
+    [->(client) { client.webhook_endpoints.update(ID, { url: "https://example.com/hooks" }) },
+     ->(client) { client.webhook_endpoints.verify(ID) }].each do |call|
+      api = fake_api(problem(429, "rate_limited", {}, { "retry-after" => "1800" }))
+      error = assert_raises(Flashpi::RateLimitError) { call.call(api.client) }
+      assert_equal ["rate_limited", 1800], [error.code, error.retry_after]
+      assert_equal 1, api.sent.size
+    end
+  end
+
+  def test_does_not_retry_the_limit_of_webhook_endpoints
+    api = fake_api(problem(409, "webhook_endpoint_limit_reached", { limit: 20 }))
+    body = { url: "https://example.com/hooks", events: ["invoice.authorized"] }
+    error = assert_raises(Flashpi::ConflictError) { api.client.webhook_endpoints.create(body) }
+    assert_equal ["webhook_endpoint_limit_reached", 20], [error.code, error.problem[:limit]]
+    assert_equal 1, api.sent.size
+  end
+
   def test_reads_a_retry_after_given_as_an_http_date
     at = (Time.now + 2).httpdate
     api = fake_api(problem(503, "x", {}, { "retry-after" => at }), json_response({}))
