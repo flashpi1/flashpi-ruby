@@ -109,6 +109,10 @@ module Flashpi
       revocation: certificate_revocation?,
       rejection: certificate_rejection?,
 
+      # Warnings about an accepted certificate (empty when there are none). A test certificate that
+      # is not for the issuer's RUC is accepted with `ruc_mismatch`.
+      warnings: Array[certificate_warning],
+
       # Format: date-time.
       createdAt: String,
 
@@ -181,6 +185,20 @@ module Flashpi
 
     type certificate_status = "processing" | "accepted" | "rejected"
 
+    # Something to fix about an accepted certificate that does not stop it signing.
+    type certificate_warning = {
+      # `ruc_mismatch`: a test certificate that is not for the issuer's RUC. It signs test documents
+      # only and does not count for live API keys; in live mode such a certificate is rejected
+      # (`rejection.code` `ruc_mismatch`).
+      code: certificate_warning_code,
+      message: String
+    }
+
+    # `ruc_mismatch`: a test certificate that is not for the issuer's RUC. It signs test documents
+    # only and does not count for live API keys; in live mode such a certificate is rejected
+    # (`rejection.code` `ruc_mismatch`).
+    type certificate_warning_code = "ruc_mismatch"
+
     # The query of `certificatesList` (GET /v1/issuers/{issuerId}/certificates).
     type certificates_list_query = {
       # Maximum number of items to return. Default: `20`.
@@ -243,7 +261,9 @@ module Flashpi
 
       # Additional information printed on the document (name → value, 1 to 300 characters each). A
       # document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and
-      # Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours.
+      # Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours. Not accepted with the
+      # shared demo issuer (422 demo_issuer_free_text_not_allowed), whose documents carry only the
+      # legend "Aviso: DOCUMENTO DE PRUEBA SIN VALIDEZ TRIBUTARIA - SANDBOX FLASHPI".
       ?additionalInfo: Hash[Symbol, String],
 
       # Delivery options.
@@ -288,7 +308,9 @@ module Flashpi
 
       # Additional information printed on the document (name → value, 1 to 300 characters each). A
       # document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and
-      # Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours.
+      # Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours. Not accepted with the
+      # shared demo issuer (422 demo_issuer_free_text_not_allowed), whose documents carry only the
+      # legend "Aviso: DOCUMENTO DE PRUEBA SIN VALIDEZ TRIBUTARIA - SANDBOX FLASHPI".
       ?additionalInfo: Hash[Symbol, String],
 
       # Delivery options.
@@ -346,7 +368,9 @@ module Flashpi
 
       # Additional information printed on the document (name → value, 1 to 300 characters each). A
       # document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and
-      # Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours.
+      # Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours. Not accepted with the
+      # shared demo issuer (422 demo_issuer_free_text_not_allowed), whose documents carry only the
+      # legend "Aviso: DOCUMENTO DE PRUEBA SIN VALIDEZ TRIBUTARIA - SANDBOX FLASHPI".
       ?additionalInfo: Hash[Symbol, String],
 
       # Delivery options.
@@ -417,7 +441,9 @@ module Flashpi
 
       # Additional information printed on the document (name → value, 1 to 300 characters each). A
       # document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and
-      # Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours.
+      # Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours. Not accepted with the
+      # shared demo issuer (422 demo_issuer_free_text_not_allowed), whose documents carry only the
+      # legend "Aviso: DOCUMENTO DE PRUEBA SIN VALIDEZ TRIBUTARIA - SANDBOX FLASHPI".
       ?additionalInfo: Hash[Symbol, String],
 
       # Delivery options.
@@ -458,7 +484,9 @@ module Flashpi
 
       # Additional information printed on the document (name → value, 1 to 300 characters each). A
       # document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and
-      # Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours.
+      # Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours. Not accepted with the
+      # shared demo issuer (422 demo_issuer_free_text_not_allowed), whose documents carry only the
+      # legend "Aviso: DOCUMENTO DE PRUEBA SIN VALIDEZ TRIBUTARIA - SANDBOX FLASHPI".
       ?additionalInfo: Hash[Symbol, String],
 
       # Delivery options.
@@ -555,7 +583,9 @@ module Flashpi
 
       # Additional information printed on the document (name → value, 1 to 300 characters each). A
       # document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and
-      # Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours.
+      # Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours. Not accepted with the
+      # shared demo issuer (422 demo_issuer_free_text_not_allowed), whose documents carry only the
+      # legend "Aviso: DOCUMENTO DE PRUEBA SIN VALIDEZ TRIBUTARIA - SANDBOX FLASHPI".
       ?additionalInfo: Hash[Symbol, String],
 
       # Delivery options.
@@ -577,7 +607,8 @@ module Flashpi
 
     # A reason for a debit note and its amount before taxes.
     type debit_note_reason = {
-      # Reason.
+      # Reason. With the shared demo issuer at most 291 characters (422
+      # demo_issuer_description_too_long): Flashpi starts it with "PRUEBA - ".
       description: String,
 
       # Amount before taxes.
@@ -791,6 +822,7 @@ module Flashpi
       | "certificate_blocked"
       | "certificate_revoked"
       | "certificate_unusable"
+      | "certificate_ruc_mismatch"
       | "document_too_large"
       | "document_invalid"
       | "signing_failed"
@@ -798,6 +830,7 @@ module Flashpi
       | "sri_authorization_timeout"
       | "sri_request_refused"
       | "sri_environment_mismatch"
+      | "sri_authorization_mismatch"
 
     # A line of an invoice, credit note or purchase settlement. Flashpi computes its subtotal
     # (quantity × unit price − discount, rounded to 2 decimals) and its taxes.
@@ -808,7 +841,8 @@ module Flashpi
       # A second code, for example the barcode.
       ?auxiliaryCode: String,
 
-      # Description.
+      # Description. With the shared demo issuer at most 291 characters (422
+      # demo_issuer_description_too_long): Flashpi starts it with "PRUEBA - ".
       description: String,
 
       # Unit of measure (invoices and purchase settlements).
@@ -826,7 +860,8 @@ module Flashpi
       # The taxes of the line.
       taxes: Array[document_tax],
 
-      # Up to 3 extra details printed with the line (name → value, 1 to 300 characters).
+      # Up to 3 extra details printed with the line (name → value, 1 to 300 characters). Not
+      # accepted with the shared demo issuer (422 demo_issuer_free_text_not_allowed).
       ?additionalDetails: Hash[Symbol, String]
     }
 
@@ -1115,6 +1150,7 @@ module Flashpi
       | "key_scope_mismatch"
       | "key_read_only"
       | "ip_not_allowed"
+      | "live_key_required"
       | "invalid_idempotency_key"
       | "idempotency_key_reused"
       | "idempotency_key_in_progress"
@@ -1144,6 +1180,7 @@ module Flashpi
       | "webhook_endpoint_already_verified"
       | "webhook_endpoint_not_verified"
       | "webhook_delivery_in_progress"
+      | "webhook_endpoint_limit_reached"
       | "sandbox_not_enabled"
       | "demo_issuer_quota_exceeded"
       | "demo_issuer_unavailable"
@@ -1330,7 +1367,10 @@ module Flashpi
       | "url_not_allowed"
       | "demo_issuer_test_only"
       | "demo_issuer_sequential_not_allowed"
+      | "demo_issuer_free_text_not_allowed"
+      | "demo_issuer_description_too_long"
       | "ruc_mismatch"
+      | "certificate_ruc_missing"
 
     # A taxpayer (RUC) that issues documents.
     type issuer = {
@@ -1703,7 +1743,8 @@ module Flashpi
       ?documentId: String,
 
       # The daily limit that was reached (`email_resend_limit_reached`,
-      # `account_email_limit_reached`, `demo_issuer_quota_exceeded`).
+      # `account_email_limit_reached`, `demo_issuer_quota_exceeded`), or the most webhook endpoints
+      # an account may have in a mode (`webhook_endpoint_limit_reached`).
       ?limit: Integer,
 
       # When the daily limit resets: the next midnight in Ecuador (the three codes above and
@@ -1936,13 +1977,15 @@ module Flashpi
       # A second code.
       ?auxiliaryCode: String,
 
-      # Description.
+      # Description. With the shared demo issuer at most 291 characters (422
+      # demo_issuer_description_too_long): Flashpi starts it with "PRUEBA - ".
       description: String,
 
       # Quantity, up to 6 decimals.
       quantity: String,
 
-      # Up to 3 extra details (name → value).
+      # Up to 3 extra details (name → value). Not accepted with the shared demo issuer (422
+      # demo_issuer_free_text_not_allowed).
       ?additionalDetails: Hash[Symbol, String]
     }
 
