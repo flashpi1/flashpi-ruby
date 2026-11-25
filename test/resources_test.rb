@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
-require "rbs"
-require "rbs/test"
 
 class ResourcesTest < Minitest::Test
   include Support
@@ -43,6 +41,19 @@ class ResourcesTest < Minitest::Test
     assert typed?(payments, "::Array[::Flashpi::Types::document_payment]")
     assert typed?([{ method: "cash" }], "::Array[::Flashpi::Types::withholding_payment]")
     refute typed?([{ amount: "10.00" }], "::Array[::Flashpi::Types::document_payment]")
+  end
+
+  # Every certificate carries `warnings`, empty when there are none: a test certificate that is not
+  # for the issuer's RUC is accepted with `ruc_mismatch`.
+  def test_reads_the_warnings_of_a_certificate
+    warning = { code: "ruc_mismatch", message: "This certificate is not for the issuer's RUC" }
+    api = fake_api(json_response(certificate_body([warning])), page([certificate_body([])]))
+    certificate = api.client.issuers.certificates.get(ID, OTHER_ID)
+    assert_equal [warning], certificate[:warnings]
+    assert_empty api.client.issuers.certificates.list(ID).first[:warnings]
+    assert typed?(certificate, "::Flashpi::Types::certificate")
+    refute typed?(certificate.except(:warnings), "::Flashpi::Types::certificate")
+    refute typed?([{ code: "expired", message: "x" }], "::Array[::Flashpi::Types::certificate_warning]")
   end
 
   def test_sends_the_same_multipart_body_on_every_attempt
@@ -122,15 +133,11 @@ class ResourcesTest < Minitest::Test
 
   private
 
-  # Whether `value` is of the RBS `type`, as the gem's signatures in sig/ declare it.
-  def typed?(value, type)
-    @builder ||= begin
-      loader = RBS::EnvironmentLoader.new
-      %w[net-http net-protocol openssl uri timeout].each { |library| loader.add(library:, version: nil) }
-      loader.add(path: Pathname(File.expand_path("../sig", __dir__)))
-      RBS::DefinitionBuilder.new(env: RBS::Environment.from_loader(loader).resolve_type_names)
-    end
-    RBS::Test::TypeCheck.new(self_class: Object, builder: @builder, sample_size: 100, unchecked_classes: [])
-                        .value(value, RBS::Parser.parse_type(type))
+  # An accepted certificate as the API returns it.
+  def certificate_body(warnings)
+    { id: OTHER_ID, issuerId: ID, environment: "test", allModes: false, status: "accepted", usable: true,
+      subject: "CN=PRUEBA", issuedBy: "CN=AC PRUEBA", serialNumber: "01", validFrom: "2026-01-01T00:00:00.000Z",
+      validUntil: "2028-01-01T00:00:00.000Z", sha256Fingerprint: "ab" * 32, ruc: "1790012345001", revocation: nil,
+      rejection: nil, warnings:, createdAt: "2026-11-24T10:00:00.000Z", updatedAt: "2026-11-24T10:00:00.000Z" }
   end
 end
