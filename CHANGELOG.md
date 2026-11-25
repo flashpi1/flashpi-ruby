@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/flashpi1/flashpi-ruby/compare/v0.2.0...v0.2.1) (2026-11-25)
+
+
+### Bug fixes
+
+* **types:** sync the API contract of 2026-11-24 ([194d628](https://github.com/flashpi1/flashpi-ruby/commit/194d6286ed84cadff2767f0a89b7a280384f814b))
+
 ## [0.2.0](https://github.com/flashpi1/flashpi-ruby/compare/v0.1.0...v0.2.0) (2026-11-18)
 
 
