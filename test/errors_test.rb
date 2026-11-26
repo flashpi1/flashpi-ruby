@@ -29,6 +29,24 @@ class ErrorsTest < Minitest::Test
     assert_equal "422 validation_failed: Bad fields", failure.message
   end
 
+  def test_knows_the_codes_of_the_contract
+    failure = error(403, JSON.generate({ code: "live_key_required" }))
+    assert_instance_of Flashpi::PermissionDeniedError, failure
+    assert_equal "live_key_required", failure.code
+    body = JSON.generate({ code: "validation_failed",
+                           errors: [{ field: "items[0].additionalDetails", code: "demo_issuer_free_text_not_allowed",
+                                      message: "Not allowed" }] })
+    assert_equal "demo_issuer_free_text_not_allowed", error(422, body).errors.first[:code]
+    assert typed?(%w[live_key_required webhook_endpoint_limit_reached], "::Array[::Flashpi::Types::error_code]")
+    assert typed?(%w[certificate_ruc_missing demo_issuer_description_too_long demo_issuer_free_text_not_allowed],
+                  "::Array[::Flashpi::Types::field_error_code]")
+    assert typed?(%w[certificate_ruc_mismatch sri_authorization_mismatch],
+                  "::Array[::Flashpi::Types::document_failure_code]")
+    refute typed?("no_such_code", "::Flashpi::Types::error_code")
+    # An unknown code still reads: the SDK's own code types accept any String.
+    assert typed?("no_such_code", "::Flashpi::Types::api_error_code")
+  end
+
   def test_falls_back_to_the_title_and_the_header_request_id
     failure = error(409, JSON.generate({ code: "conflict", title: "Conflict", errors: "nope" }),
                     { "x-request-id" => "req_header" })
