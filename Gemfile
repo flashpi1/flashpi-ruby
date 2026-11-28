@@ -16,7 +16,7 @@ end
 
 # RuboCop and Steep, which bring newer json and uri gems with them.
 group :lint do
-  gem "rubocop", "~> 1.92"
+  gem "rubocop", "~> 1.93"
   gem "rubocop-minitest", "~> 0.41"
   gem "rubocop-rake", "~> 0.7"
   gem "steep", "~> 2.1"
